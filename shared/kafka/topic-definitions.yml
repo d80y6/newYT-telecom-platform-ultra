@@ -1,0 +1,109 @@
+# TMF BSS Event Backbone - Topic Definitions
+# 6 partitions per topic, 7-day retention, keyed by entity ID
+
+topics:
+  # Party Domain Events
+  - name: party.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000  # 7 days
+    keyField: party_id
+    description: "TMF632 Party Management state changes"
+
+  # Catalog Domain Events
+  - name: catalog.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: offering_id
+    description: "TMF620 Product Catalog changes"
+
+  # Order Domain Events
+  - name: order.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: order_id
+    description: "TMF622 Product Ordering state changes"
+
+  # Service Domain Events
+  - name: service.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: service_id
+    description: "TMF641 Service Ordering state changes"
+
+  # Resource Domain Events
+  - name: resource.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: resource_id
+    description: "TMF640 Resource Ordering state changes"
+
+  # Usage Domain Events
+  - name: usage.events
+    partitions: 12
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: account_id
+    description: "TMF648 Usage Management (CDRs)"
+
+  # Billing Domain Events
+  - name: billing.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: account_id
+    description: "TMF657 Billing Management state changes"
+
+  # Charging Engine Events
+  - name: charging.events
+    partitions: 12
+    replicationFactor: 3
+    retentionMs: 604800000
+    keyField: msisdn
+    description: "Real-time charging events from Go engine"
+
+  # Alarm Domain Events
+  - name: alarm.events
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 259200000  # 3 days
+    keyField: alarm_id
+    description: "TMF642 Alarm Management events"
+
+  # Dead Letter Queue
+  - name: events.dlq
+    partitions: 6
+    replicationFactor: 3
+    retentionMs: 2592000000  # 30 days
+    keyField: original_topic
+    description: "Failed event processing for retry"
+
+consumers:
+  party-mgmt:
+    groupId: party-mgmt-group
+    topics:
+      - party.events
+    autoOffsetReset: earliest
+
+  catalog-mgmt:
+    groupId: catalog-mgmt-group
+    topics:
+      - catalog.events
+    autoOffsetReset: earliest
+
+  order-mgmt:
+    groupId: order-mgmt-group
+    topics:
+      - order.events
+    autoOffsetReset: earliest
+
+  charging-engine:
+    groupId: charging-engine-group
+    topics:
+      - usage.events
+      - catalog.events
+    autoOffsetReset: earliest

@@ -1,0 +1,182 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bss-core-zone-a
+  namespace: bss-oss
+  labels:
+    app: bss-core
+    zone: a
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bss-core
+      zone: a
+  template:
+    metadata:
+      labels:
+        app: bss-core
+        zone: a
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - bss-core
+                topologyKey: topology.kubernetes.io/zone
+      containers:
+        - name: bss-core
+          image: yemenptc/bss-core:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bss-secrets
+                  key: database-url
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-cluster-kafka-bootstrap:9092"
+            - name: SPRING_DATA_REDIS_HOST
+              value: "redis-cluster"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bss-core-zone-b
+  namespace: bss-oss
+  labels:
+    app: bss-core
+    zone: b
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bss-core
+      zone: b
+  template:
+    metadata:
+      labels:
+        app: bss-core
+        zone: b
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - bss-core
+                topologyKey: topology.kubernetes.io/zone
+      containers:
+        - name: bss-core
+          image: yemenptc/bss-core:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bss-secrets
+                  key: database-url
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-cluster-kafka-bootstrap:9092"
+            - name: SPRING_DATA_REDIS_HOST
+              value: "redis-cluster"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "1000m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bss-core-lb
+  namespace: bss-oss
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  selector:
+    app: bss-core
+  ports:
+    - port: 80
+      targetPort: 8080
+      name: http
+  type: LoadBalancer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bss-core-config
+  namespace: bss-oss
+data:
+  application.yml: |
+    spring:
+      datasource:
+        hikari:
+          maximum-pool-size: 50
+          minimum-idle: 10
+          connection-timeout: 30000
+          idle-timeout: 600000
+          max-lifetime: 1800000
+      redis:
+        cluster:
+          nodes: redis-0:6379,redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379
+      kafka:
+        producer:
+          acks: all
+          retries: 3
+          properties:
+            enable.idempotence: true
+        consumer:
+          auto-offset-reset: earliest
+          isolation.level: read_committed
+    bss:
+      ha:
+        enabled: true
+        zone-awareness: true
+        session-replication: true
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: bss-core-pdb
+  namespace: bss-oss
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: bss-core

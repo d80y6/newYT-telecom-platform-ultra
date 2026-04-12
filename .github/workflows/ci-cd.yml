@@ -1,0 +1,189 @@
+name: BSS/OSS CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: yemenptc
+
+jobs:
+  # ==================== JAVA BUILD & TEST ====================
+  java-build:
+    name: Java Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bss-core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run tests
+        run: mvn test
+
+      - name: Build
+        run: mvn clean package -DskipTests
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bss-core-jar
+          path: bss-core/target/*.jar
+
+  # ==================== GO BUILD & TEST ====================
+  go-build:
+    name: Go Build & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: charging-engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build
+        run: CGO_ENABLED=0 go build -o charging-engine ./cmd/server
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: charging-engine-binary
+          path: charging-engine/charging-engine
+
+  # ==================== NESTJS BUILD & TEST ====================
+  nestjs-build:
+    name: NestJS Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api-gateway
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+  # ==================== REACT FRONTEND BUILD ====================
+  frontend-build:
+    name: React Frontend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  # ==================== DOCKER BUILD ====================
+  docker-build:
+    name: Docker Build
+    needs: [java-build, go-build, nestjs-build, frontend-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push bss-core
+        uses: docker/build-push-action@v5
+        with:
+          context: ./bss-core
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/bss-core:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/bss-core:${{ github.sha }}
+
+      - name: Build and push charging-engine
+        uses: docker/build-push-action@v5
+        with:
+          context: ./charging-engine
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/charging-engine:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/charging-engine:${{ github.sha }}
+
+      - name: Build and push api-gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api-gateway
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api-gateway:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api-gateway:${{ github.sha }}
+
+  # ==================== DEPLOY TO STAGING ====================
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [docker-build]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Deploy to staging
+        run: |
+          kubectl set image deployment/bss-core bss-core=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/bss-core:${{ github.sha }} -n bss-oss
+          kubectl set image deployment/charging-engine charging-engine=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/charging-engine:${{ github.sha }} -n bss-oss
+          kubectl set image deployment/api-gateway api-gateway=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api-gateway:${{ github.sha }} -n bss-oss
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/bss-core -n bss-oss --timeout=300s
+          kubectl rollout status deployment/charging-engine -n bss-oss --timeout=300s
+          kubectl rollout status deployment/api-gateway -n bss-oss --timeout=300s

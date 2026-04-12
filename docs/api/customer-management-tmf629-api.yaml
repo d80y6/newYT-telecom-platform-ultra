@@ -1,0 +1,1002 @@
+openapi: 3.0.3
+info:
+  title: Customer Management API
+  description: |
+    TMF629-compliant Customer Management API for Yemen PTC.
+    Provides Customer 360 view with comprehensive customer data, account hierarchies,
+    customer segments, behavioral analytics, and relationship management.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Customer 360
+    description: Complete customer view
+  - name: Customer Segments
+    description: Customer segmentation and targeting
+  - name: Customer Accounts
+    description: Account hierarchy management
+  - name: Customer Relationships
+    description: Customer relationship networks
+  - name: Customer Analytics
+    description: Customer behavior and value analytics
+  - name: Credit Profile
+    description: Customer credit scoring and limits
+
+paths:
+  /customerManagement/v4/customer:
+    get:
+      tags: [Customer 360]
+      summary: List customers with 360 view
+      operationId: listCustomers360
+      parameters:
+        - name: segment
+          in: query
+          schema:
+            type: string
+            enum: [VIP, PREMIUM, STANDARD, BASIC, AT_RISK, CHURN_RISK]
+        - name: customerType
+          in: query
+          schema:
+            type: string
+            enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, SUSPENDED, TERMINATED]
+        - name: minLifetimeValue
+          in: query
+          schema:
+            type: number
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Customers retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360List'
+
+    post:
+      tags: [Customer 360]
+      summary: Create customer with full profile
+      operationId: createCustomer360
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer360Create'
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360'
+
+  /customerManagement/v4/customer/{id}:
+    get:
+      tags: [Customer 360]
+      summary: Get customer 360 view
+      operationId: getCustomer360
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          schema:
+            type: string
+            description: 'Comma-separated: accounts,subscriptions,orders,usage,billing,interactions,creditScore'
+      responses:
+        '200':
+          description: Customer retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360'
+
+    patch:
+      tags: [Customer 360]
+      summary: Update customer profile
+      operationId: updateCustomer360
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer360Update'
+      responses:
+        '200':
+          description: Customer updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360'
+
+    delete:
+      tags: [Customer 360]
+      summary: Delete customer (soft delete)
+      operationId: deleteCustomer360
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Customer deleted
+
+  /customerManagement/v4/customer/{id}/dashboard:
+    get:
+      tags: [Customer 360]
+      summary: Get customer dashboard summary
+      operationId: getCustomerDashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Dashboard retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerDashboard'
+
+  /customerManagement/v4/customer/{id}/accounts:
+    get:
+      tags: [Customer Accounts]
+      summary: Get customer account hierarchy
+      operationId: getCustomerAccountHierarchy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: Account hierarchy retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountHierarchy'
+
+  /customerManagement/v4/customer/{id}/usage:
+    get:
+      tags: [Customer Analytics]
+      summary: Get customer usage statistics
+      operationId: getCustomerUsageStats
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+            default: MONTH
+        - name: serviceType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Usage statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageStatistics'
+
+  /customerManagement/v4/customer/{id}/billing:
+    get:
+      tags: [Customer Analytics]
+      summary: Get customer billing summary
+      operationId: getCustomerBillingSummary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Billing summary retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingSummary'
+
+  /customerManagement/v4/customer/{id}/segments:
+    get:
+      tags: [Customer Segments]
+      summary: Get customer segments
+      operationId: getCustomerSegments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Segments retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSegmentList'
+
+  /customerManagement/v4/customer/{id}/relationships:
+    get:
+      tags: [Customer Relationships]
+      summary: Get customer relationship network
+      operationId: getCustomerRelationships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            default: 2
+      responses:
+        '200':
+          description: Relationships retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerRelationshipNetwork'
+
+    post:
+      tags: [Customer Relationships]
+      summary: Create customer relationship
+      operationId: createCustomerRelationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerRelationshipCreate'
+      responses:
+        '201':
+          description: Relationship created
+
+  /customerManagement/v4/customer/{id}/creditProfile:
+    get:
+      tags: [Credit Profile]
+      summary: Get customer credit profile
+      operationId: getCreditProfile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Credit profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+
+    patch:
+      tags: [Credit Profile]
+      summary: Update credit profile
+      operationId: updateCreditProfile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditProfileUpdate'
+      responses:
+        '200':
+          description: Credit profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+
+  /customerManagement/v4/customer/{id}/churnRisk:
+    get:
+      tags: [Customer Analytics]
+      summary: Get churn risk assessment
+      operationId: getChurnRisk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Churn risk retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChurnRiskAssessment'
+
+  /customerManagement/v4/customerSegment:
+    get:
+      tags: [Customer Segments]
+      summary: List customer segments
+      operationId: listCustomerSegments
+      parameters:
+        - name: segmentType
+          in: query
+          schema:
+            type: string
+            enum: [VALUE, BEHAVIOR, DEMOGRAPHIC, LIFECYCLE, CHURN_RISK]
+      responses:
+        '200':
+          description: Segments retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSegmentDefinitionList'
+
+    post:
+      tags: [Customer Segments]
+      summary: Create customer segment
+      operationId: createCustomerSegment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerSegmentDefinitionCreate'
+      responses:
+        '201':
+          description: Segment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerSegmentDefinition'
+
+  /customerManagement/v4/customerSegment/{id}/customers:
+    get:
+      tags: [Customer Segments]
+      summary: Get customers in segment
+      operationId: getSegmentCustomers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customers retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360List'
+
+  /customerManagement/v4/search:
+    post:
+      tags: [Customer 360]
+      summary: Advanced customer search
+      operationId: searchCustomers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerSearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer360List'
+
+  /customerManagement/v4/statistics:
+    get:
+      tags: [Customer Analytics]
+      summary: Get customer statistics
+      operationId: getCustomerStatistics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+            default: MONTH
+      responses:
+        '200':
+          description: Statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerStatistics'
+
+components:
+  schemas:
+    Customer360:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        customerType:
+          type: string
+          enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, TERMINATED]
+        profile:
+          $ref: '#/components/schemas/CustomerProfile'
+        contact:
+          $ref: '#/components/schemas/ContactInformation'
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSegment'
+        lifetimeValue:
+          type: number
+        churnRiskScore:
+          type: number
+        creditProfile:
+          $ref: '#/components/schemas/CreditProfile'
+        accountHierarchy:
+          $ref: '#/components/schemas/AccountHierarchy'
+        usageStats:
+          $ref: '#/components/schemas/UsageStatistics'
+        billingSummary:
+          $ref: '#/components/schemas/BillingSummary'
+        relationships:
+          $ref: '#/components/schemas/CustomerRelationshipNetwork'
+        preferences:
+          $ref: '#/components/schemas/CustomerPreferences'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Customer360Create:
+      type: object
+      properties:
+        name:
+          type: string
+        customerType:
+          type: string
+        profile:
+          $ref: '#/components/schemas/CustomerProfileCreate'
+        contact:
+          $ref: '#/components/schemas/ContactInformationCreate'
+
+    Customer360Update:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+        profile:
+          $ref: '#/components/schemas/CustomerProfileUpdate'
+        contact:
+          $ref: '#/components/schemas/ContactInformationUpdate'
+        preferences:
+          $ref: '#/components/schemas/CustomerPreferences'
+
+    Customer360List:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer360'
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    CustomerProfile:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER]
+        nationality:
+          type: string
+        nationalId:
+          type: string
+        passportNumber:
+          type: string
+        occupation:
+          type: string
+        employer:
+          type: string
+        incomeLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        languagePreference:
+          type: string
+          enum: [AR, EN]
+
+    CustomerProfileCreate:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        dateOfBirth:
+          type: string
+        nationalId:
+          type: string
+
+    CustomerProfileUpdate:
+      type: object
+      properties:
+        occupation:
+          type: string
+        employer:
+          type: string
+        incomeLevel:
+          type: string
+
+    ContactInformation:
+      type: object
+      properties:
+        primaryPhone:
+          type: string
+        secondaryPhone:
+          type: string
+        email:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+        preferredContactMethod:
+          type: string
+          enum: [PHONE, EMAIL, SMS, WHATSAPP]
+        preferredContactTime:
+          type: string
+
+    ContactInformationCreate:
+      type: object
+      properties:
+        primaryPhone:
+          type: string
+        email:
+          type: string
+
+    ContactInformationUpdate:
+      type: object
+      properties:
+        primaryPhone:
+          type: string
+        email:
+          type: string
+        preferredContactMethod:
+          type: string
+
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        governorate:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    CustomerSegment:
+      type: object
+      properties:
+        segmentId:
+          type: string
+        segmentName:
+          type: string
+        segmentType:
+          type: string
+        assignedDate:
+          type: string
+          format: date-time
+        score:
+          type: number
+
+    CustomerSegmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSegment'
+
+    CustomerSegmentDefinition:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        segmentType:
+          type: string
+        criteria:
+          type: object
+        customerCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    CustomerSegmentDefinitionCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        segmentType:
+          type: string
+        criteria:
+          type: object
+
+    CustomerSegmentDefinitionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerSegmentDefinition'
+
+    AccountHierarchy:
+      type: object
+      properties:
+        rootAccount:
+          $ref: '#/components/schemas/AccountNode'
+        totalAccounts:
+          type: integer
+        depth:
+          type: integer
+
+    AccountNode:
+      type: object
+      properties:
+        id:
+          type: string
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+        status:
+          type: string
+        balance:
+          type: number
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountNode'
+
+    UsageStatistics:
+      type: object
+      properties:
+        period:
+          type: string
+        voiceMinutes:
+          type: number
+        dataUsageGB:
+          type: number
+        smsCount:
+          type: integer
+        mmsCount:
+          type: integer
+        internationalMinutes:
+          type: number
+        roamingDataGB:
+          type: number
+        trends:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageTrend'
+
+    UsageTrend:
+      type: object
+      properties:
+        period:
+          type: string
+        voiceMinutes:
+          type: number
+        dataUsageGB:
+          type: number
+        smsCount:
+          type: integer
+
+    BillingSummary:
+      type: object
+      properties:
+        currentBalance:
+          type: number
+        overdueAmount:
+          type: number
+        lastPaymentDate:
+          type: string
+          format: date-time
+        lastPaymentAmount:
+          type: number
+        averageMonthlyBill:
+          type: number
+        paymentHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentHistoryItem'
+
+    PaymentHistoryItem:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date-time
+        amount:
+          type: number
+        method:
+          type: string
+
+    CreditProfile:
+      type: object
+      properties:
+        creditScore:
+          type: integer
+        creditLimit:
+          type: number
+        availableCredit:
+          type: number
+        creditStatus:
+          type: string
+          enum: [EXCELLENT, GOOD, FAIR, POOR, DEFAULT]
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        lastReviewDate:
+          type: string
+          format: date-time
+        paymentBehavior:
+          $ref: '#/components/schemas/PaymentBehavior'
+
+    CreditProfileUpdate:
+      type: object
+      properties:
+        creditLimit:
+          type: number
+        creditStatus:
+          type: string
+
+    PaymentBehavior:
+      type: object
+      properties:
+        onTimePaymentRate:
+          type: number
+        latePaymentCount:
+          type: integer
+        defaultCount:
+          type: integer
+        daysPastDue:
+          type: integer
+
+    CustomerRelationshipNetwork:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationshipNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationshipEdge'
+
+    RelationshipNode:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+
+    RelationshipEdge:
+      type: object
+      properties:
+        source:
+          type: string
+        target:
+          type: string
+        relationshipType:
+          type: string
+          enum: [FAMILY, BUSINESS, REFERRAL, GUARANTOR, SUBSIDIARY]
+
+    CustomerRelationshipCreate:
+      type: object
+      properties:
+        targetCustomerId:
+          type: string
+        relationshipType:
+          type: string
+
+    CustomerPreferences:
+      type: object
+      properties:
+        communicationChannel:
+          type: string
+        language:
+          type: string
+        marketingConsent:
+          type: boolean
+        privacySettings:
+          type: object
+
+    CustomerDashboard:
+      type: object
+      properties:
+        customerId:
+          type: string
+        summary:
+          type: object
+          properties:
+            activeServices:
+              type: integer
+            totalAccounts:
+              type: integer
+            currentBalance:
+              type: number
+            monthlyUsage:
+              type: object
+        alerts:
+          type: array
+          items:
+            type: object
+        recommendations:
+          type: array
+          items:
+            type: string
+
+    ChurnRiskAssessment:
+      type: object
+      properties:
+        customerId:
+          type: string
+        churnRiskScore:
+          type: number
+        riskLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        factors:
+          type: array
+          items:
+            type: string
+        predictionDate:
+          type: string
+          format: date-time
+        recommendedActions:
+          type: array
+          items:
+            type: string
+
+    CustomerSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        filters:
+          type: object
+        segments:
+          type: array
+          items:
+            type: string
+        page:
+          type: integer
+        size:
+          type: integer
+
+    CustomerStatistics:
+      type: object
+      properties:
+        totalCustomers:
+          type: integer
+        activeCustomers:
+          type: integer
+        newCustomers:
+          type: integer
+        churnedCustomers:
+          type: integer
+        bySegment:
+          type: object
+        byType:
+          type: object
+        averageLifetimeValue:
+          type: number
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string

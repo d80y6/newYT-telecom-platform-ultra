@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /opt/newYT-telecom-platform-ultra -type f \\\\\\( -name \"*.java\" -o -name \"*.go\" -o -name \"*.ts\" \\\\\\) -exec wc -l {} +)",
+      "Bash(find /opt/newYT-telecom-platform-ultra/bss-core/src/main/java -name \"*.java\" -exec grep -l \"@Transactional\" {} \\\\;)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(grep -E \"\\\\.json$|^d\")"
+    ]
+  }
+}

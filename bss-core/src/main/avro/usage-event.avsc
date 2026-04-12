@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "UsageEvent",
+  "namespace": "com.yemenptc.bss.events.usage",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string", "doc": "com.yemenptc.usage.cdr.received|rated|settled"},
+    {"name": "cdrId", "type": "string", "doc": "Unique CDR identifier"},
+    {"name": "accountId", "type": "string"},
+    {"name": "serviceType", "type": "string", "doc": "VOICE|DATA|SMS|MMS"},
+    {"name": "originatingNumber", "type": ["null", "string"], "default": null},
+    {"name": "terminatingNumber", "type": ["null", "string"], "default": null},
+    {"name": "startTime", "type": "long"},
+    {"name": "endTime", "type": ["null", "long"], "default": null},
+    {"name": "durationSeconds", "type": ["null", "int"], "default": null},
+    {"name": "volumeBytes", "type": ["null", "long"], "default": null},
+    {"name": "ratedAmount", "type": ["null", "double"], "default": null, "doc": "Amount after rating"},
+    {"name": "currency", "type": "string", "default": "YER"},
+    {"name": "ratingPlanId", "type": ["null", "string"], "default": null},
+    {"name": "timestamp", "type": "long"},
+    {"name": "correlationId", "type": ["null", "string"], "default": null},
+    {"name": "source", "type": "string", "default": "tmf648-usage-mgmt"}
+  ]
+}

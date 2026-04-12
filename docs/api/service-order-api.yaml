@@ -1,0 +1,968 @@
+openapi: 3.0.3
+info:
+  title: Service Order Management API
+  description: |
+    TMF641-compliant Service Order Management API for Yemen PTC.
+    Manages service orders throughout their lifecycle with support for order decomposition.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Service Orders
+    description: Service order lifecycle management
+  - name: Service Order Items
+    description: Individual order items within service orders
+  - name: Order Decomposition
+    description: Service order decomposition and cascading
+
+paths:
+  /serviceOrder/v4/serviceOrder:
+    get:
+      tags: [Service Orders]
+      summary: List all service orders
+      operationId: listServiceOrders
+      parameters:
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - name: orderType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [INSTALLATION, MODIFICATION, TERMINATION, MIGRATION, REPAIR]
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        - name: customerId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: relatedParty.name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: startDate.gte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: startDate.lte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Service orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Service Orders]
+      summary: Create a new service order
+      operationId: createServiceOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderCreate'
+      responses:
+        '201':
+          description: Service order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /serviceOrder/v4/serviceOrder/{id}:
+    get:
+      tags: [Service Orders]
+      summary: Get service order by ID
+      operationId: getServiceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [serviceOrderItem, relatedParty, appointment]
+      responses:
+        '200':
+          description: Service order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Service Orders]
+      summary: Update service order (partial)
+      operationId: updateServiceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderUpdate'
+      responses:
+        '200':
+          description: Service order updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Service Orders]
+      summary: Cancel service order
+      operationId: cancelServiceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Service order cancelled successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /serviceOrder/v4/serviceOrder/{orderId}/serviceOrderItem:
+    get:
+      tags: [Service Order Items]
+      summary: List service order items
+      operationId: listServiceOrderItems
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Service order items retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderItemList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Service Order Items]
+      summary: Add service order item
+      operationId: createServiceOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderItemCreate'
+      responses:
+        '201':
+          description: Service order item created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /serviceOrder/v4/serviceOrder/{orderId}/serviceOrderItem/{itemId}:
+    get:
+      tags: [Service Order Items]
+      summary: Get service order item by ID
+      operationId: getServiceOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service order item retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Service Order Items]
+      summary: Update service order item
+      operationId: updateServiceOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceOrderItemUpdate'
+      responses:
+        '200':
+          description: Service order item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Service Order Items]
+      summary: Remove service order item
+      operationId: deleteServiceOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Service order item deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /serviceOrder/v4/serviceOrder/{id}/decompose:
+    post:
+      tags: [Order Decomposition]
+      summary: Decompose service order into sub-orders
+      operationId: decomposeServiceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderDecompositionRequest'
+      responses:
+        '200':
+          description: Service order decomposed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /serviceOrder/v4/serviceOrder/{id}/hierarchy:
+    get:
+      tags: [Order Decomposition]
+      summary: Get service order hierarchy
+      operationId: getServiceOrderHierarchy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: Service order hierarchy retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceOrderHierarchy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    ServiceOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the service order
+        href:
+          type: string
+          description: Reference URL to the service order
+        externalId:
+          type: string
+          description: External identifier from source system
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        description:
+          type: string
+        category:
+          type: string
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED]
+        orderType:
+          type: string
+          enum: [INSTALLATION, MODIFICATION, TERMINATION, MIGRATION, REPAIR]
+        startDate:
+          type: string
+          format: date-time
+        requestedStartDate:
+          type: string
+          format: date-time
+        requestedCompletionDate:
+          type: string
+          format: date-time
+        expectedCompletionDate:
+          type: string
+          format: date-time
+        completionDate:
+          type: string
+          format: date-time
+        cancellationDate:
+          type: string
+          format: date-time
+        cancellationReason:
+          type: string
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        serviceOrderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderItem'
+        serviceOrderRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderRelationship'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+        appointment:
+          $ref: '#/components/schemas/AppointmentRef'
+        parentOrder:
+          $ref: '#/components/schemas/ServiceOrderRef'
+        childOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderRef'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+      required:
+        - id
+        - href
+        - state
+
+    ServiceOrderCreate:
+      type: object
+      properties:
+        externalId:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        description:
+          type: string
+        category:
+          type: string
+        orderType:
+          type: string
+          enum: [INSTALLATION, MODIFICATION, TERMINATION, MIGRATION, REPAIR]
+        requestedStartDate:
+          type: string
+          format: date-time
+        requestedCompletionDate:
+          type: string
+          format: date-time
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        serviceOrderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderItemCreate'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+
+    ServiceOrderUpdate:
+      type: object
+      properties:
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        description:
+          type: string
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED]
+        requestedCompletionDate:
+          type: string
+          format: date-time
+        cancellationReason:
+          type: string
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        serviceOrderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderItemUpdate'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    ServiceOrderList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrder'
+
+    ServiceOrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+        state:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+        expectedCompletionDate:
+          type: string
+          format: date-time
+        completionDate:
+          type: string
+          format: date-time
+        description:
+          type: string
+        service:
+          $ref: '#/components/schemas/ServiceRefOrValue'
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecificationRef'
+        appointment:
+          $ref: '#/components/schemas/AppointmentRef'
+        errorMessage:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorMessage'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        subOrderId:
+          type: string
+          description: ID of child service order created for this item
+
+    ServiceOrderItemCreate:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+        description:
+          type: string
+        service:
+          $ref: '#/components/schemas/ServiceRefOrValue'
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecificationRef'
+        appointment:
+          $ref: '#/components/schemas/AppointmentRef'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+
+    ServiceOrderItemUpdate:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+        completionDate:
+          type: string
+          format: date-time
+        description:
+          type: string
+        service:
+          $ref: '#/components/schemas/ServiceRefOrValue'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    ServiceOrderItemList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderItem'
+
+    OrderDecompositionRequest:
+      type: object
+      properties:
+        strategy:
+          type: string
+          enum: [BY_SERVICE_TYPE, BY_GEOGRAPHY, BY_PRIORITY]
+          default: BY_SERVICE_TYPE
+        maxDepth:
+          type: integer
+          default: 3
+        createSubOrders:
+          type: boolean
+          default: true
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/DecompositionRule'
+
+    DecompositionRule:
+      type: object
+      properties:
+        condition:
+          type: string
+        serviceType:
+          type: string
+        assignTo:
+          type: string
+          description: System or team to assign sub-order to
+
+    ServiceOrderHierarchy:
+      type: object
+      properties:
+        parentOrder:
+          $ref: '#/components/schemas/ServiceOrder'
+        childOrders:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrder'
+        siblings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrder'
+        depth:
+          type: integer
+
+    ServiceOrderRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    ServiceOrderRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        relationshipType:
+          type: string
+        serviceOrder:
+          $ref: '#/components/schemas/ServiceOrderRef'
+
+    ServiceRefOrValue:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        serviceState:
+          type: string
+
+    ServiceSpecificationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    RelatedPlaceRefOrValue:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    AppointmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        description:
+          type: string
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    ErrorMessage:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        reason:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

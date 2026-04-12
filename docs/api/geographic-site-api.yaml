@@ -1,0 +1,1061 @@
+openapi: 3.0.3
+info:
+  title: Geographic Site Management API
+  description: |
+    TMF656-compliant Geographic Site Management API for Yemen PTC.
+    Manages geographic sites including CO, POP, and Cell Towers with site relationships.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Geographic Sites
+    description: Geographic site management
+  - name: Site Relationships
+    description: Site topology and relationships
+  - name: Telecom Sites
+    description: Telecom-specific site types
+
+paths:
+  /geographicSite/v4/geographicSite:
+    get:
+      tags: [Geographic Sites]
+      summary: List all geographic sites
+      operationId: listGeographicSites
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, PLANNED, UNDER_CONSTRUCTION, DECOMMISSIONED]
+        - name: siteType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CENTRAL_OFFICE, POP, CELL_TOWER, DATA_CENTER, HUB, DISTRIBUTION_POINT, CUSTOMER_PREMISE]
+        - name: technology
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [FTTH, ADSL, MPLS, CDMA, LTE, 5G, MICROWAVE, FIBER]
+        - name: governorate
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: serviceable
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Geographic sites retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicSiteList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Geographic Sites]
+      summary: Create a new geographic site
+      operationId: createGeographicSite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeographicSiteCreate'
+      responses:
+        '201':
+          description: Geographic site created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicSite'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/{id}:
+    get:
+      tags: [Geographic Sites]
+      summary: Get geographic site by ID
+      operationId: getGeographicSite
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [siteRelationship, geographicLocation, resource]
+      responses:
+        '200':
+          description: Geographic site retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicSite'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Geographic Sites]
+      summary: Update geographic site (partial)
+      operationId: updateGeographicSite
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeographicSiteUpdate'
+      responses:
+        '200':
+          description: Geographic site updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicSite'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Geographic Sites]
+      summary: Delete geographic site
+      operationId: deleteGeographicSite
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Geographic site deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/{id}/siteRelationship:
+    get:
+      tags: [Site Relationships]
+      summary: List site relationships
+      operationId: listSiteRelationships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relationshipType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CONTAINS, CONNECTS_TO, BACKUP_FOR, FEEDS, SIBLING, PARENT, CHILD]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Site relationships retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteRelationshipList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Site Relationships]
+      summary: Create site relationship
+      operationId: createSiteRelationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteRelationshipCreate'
+      responses:
+        '201':
+          description: Site relationship created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteRelationship'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/{siteId}/siteRelationship/{relationshipId}:
+    get:
+      tags: [Site Relationships]
+      summary: Get site relationship by ID
+      operationId: getSiteRelationship
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relationshipId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Site relationship retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteRelationship'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Site Relationships]
+      summary: Update site relationship
+      operationId: updateSiteRelationship
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relationshipId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteRelationshipUpdate'
+      responses:
+        '200':
+          description: Site relationship updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteRelationship'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Site Relationships]
+      summary: Delete site relationship
+      operationId: deleteSiteRelationship
+      parameters:
+        - name: siteId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relationshipId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Site relationship deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/{id}/topology:
+    get:
+      tags: [Site Relationships]
+      summary: Get site topology
+      operationId: getSiteTopology
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: depth
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 3
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [UPSTREAM, DOWNSTREAM, BOTH]
+            default: BOTH
+      responses:
+        '200':
+          description: Site topology retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTopology'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/search:
+    post:
+      tags: [Geographic Sites]
+      summary: Search sites
+      operationId: searchSites
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteSearchRequest'
+      responses:
+        '200':
+          description: Site search completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicSiteList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicSite/v4/geographicSite/{id}/coverage:
+    get:
+      tags: [Telecom Sites]
+      summary: Get site coverage area
+      operationId: getSiteCoverage
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Site coverage retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoverageArea'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    GeographicSite:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the geographic site
+        href:
+          type: string
+          description: Reference URL to the geographic site
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PLANNED, UNDER_CONSTRUCTION, DECOMMISSIONED]
+        statusChangeDate:
+          type: string
+          format: date-time
+        statusChangeReason:
+          type: string
+        siteType:
+          type: string
+          enum: [CENTRAL_OFFICE, POP, CELL_TOWER, DATA_CENTER, HUB, DISTRIBUTION_POINT, CUSTOMER_PREMISE]
+        siteCategory:
+          type: string
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        place:
+          $ref: '#/components/schemas/PlaceRef'
+        address:
+          $ref: '#/components/schemas/GeographicAddressRef'
+        siteRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteRelationship'
+        resource:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        service:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRef'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        coverageArea:
+          $ref: '#/components/schemas/CoverageArea'
+        siteCharacteristics:
+          $ref: '#/components/schemas/SiteCharacteristics'
+        capacity:
+          $ref: '#/components/schemas/SiteCapacity'
+        technology:
+          type: array
+          items:
+            type: string
+            enum: [FTTH, ADSL, MPLS, CDMA, LTE, 5G, MICROWAVE, FIBER]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+      required:
+        - id
+        - href
+        - name
+        - status
+
+    GeographicSiteCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PLANNED, UNDER_CONSTRUCTION, DECOMMISSIONED]
+          default: PLANNED
+        siteType:
+          type: string
+          enum: [CENTRAL_OFFICE, POP, CELL_TOWER, DATA_CENTER, HUB, DISTRIBUTION_POINT, CUSTOMER_PREMISE]
+        siteCategory:
+          type: string
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        place:
+          $ref: '#/components/schemas/PlaceRef'
+        address:
+          $ref: '#/components/schemas/GeographicAddressRef'
+        siteRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteRelationshipCreate'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        coverageArea:
+          $ref: '#/components/schemas/CoverageArea'
+        siteCharacteristics:
+          $ref: '#/components/schemas/SiteCharacteristics'
+        technology:
+          type: array
+          items:
+            type: string
+            enum: [FTTH, ADSL, MPLS, CDMA, LTE, 5G, MICROWAVE, FIBER]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    GeographicSiteUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PLANNED, UNDER_CONSTRUCTION, DECOMMISSIONED]
+        statusChangeReason:
+          type: string
+        siteCategory:
+          type: string
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        coverageArea:
+          $ref: '#/components/schemas/CoverageArea'
+        siteCharacteristics:
+          $ref: '#/components/schemas/SiteCharacteristics'
+        technology:
+          type: array
+          items:
+            type: string
+            enum: [FTTH, ADSL, MPLS, CDMA, LTE, 5G, MICROWAVE, FIBER]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    GeographicSiteList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSite'
+
+    SiteRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        relationshipType:
+          type: string
+          enum: [CONTAINS, CONNECTS_TO, BACKUP_FOR, FEEDS, SIBLING, PARENT, CHILD]
+        relationshipSubtype:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        site:
+          $ref: '#/components/schemas/GeographicSiteRef'
+        relatedSite:
+          $ref: '#/components/schemas/GeographicSiteRef'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        link:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    SiteRelationshipCreate:
+      type: object
+      properties:
+        relationshipType:
+          type: string
+          enum: [CONTAINS, CONNECTS_TO, BACKUP_FOR, FEEDS, SIBLING, PARENT, CHILD]
+        relationshipSubtype:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+          default: ACTIVE
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        relatedSite:
+          $ref: '#/components/schemas/GeographicSiteRef'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        link:
+          type: array
+          items:
+            $ref: '#/components/schemas/Link'
+
+    SiteRelationshipUpdate:
+      type: object
+      properties:
+        relationshipType:
+          type: string
+          enum: [CONTAINS, CONNECTS_TO, BACKUP_FOR, FEEDS, SIBLING, PARENT, CHILD]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    SiteRelationshipList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteRelationship'
+
+    GeographicSiteRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        siteType:
+          type: string
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    GeographicLocation:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        geometryType:
+          type: string
+          enum: [Point, Polygon, LineString]
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        spatialRef:
+          type: string
+          default: WGS84
+
+    Geometry:
+      type: object
+      properties:
+        coordinates:
+          type: array
+          items:
+            type: number
+        type:
+          type: string
+
+    PlaceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    GeographicAddressRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        formattedAddress:
+          type: string
+
+    CoverageArea:
+      type: object
+      properties:
+        coverageType:
+          type: string
+          enum: [CIRCULAR, POLYGON]
+        radius:
+          $ref: '#/components/schemas/Quantity'
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        coveredTechnologies:
+          type: array
+          items:
+            type: string
+            enum: [FTTH, ADSL, MPLS, CDMA, LTE, 5G, MICROWAVE, FIBER]
+        populationServed:
+          type: integer
+        serviceableAddresses:
+          type: integer
+
+    SiteCharacteristics:
+      type: object
+      properties:
+        buildingType:
+          type: string
+        floorCount:
+          type: integer
+        hasGenerator:
+          type: boolean
+        hasSolarPower:
+          type: boolean
+        hasBatteryBackup:
+          type: boolean
+        climateControl:
+          type: string
+        securityLevel:
+          type: string
+        accessibility:
+          type: string
+        siteOwner:
+          type: string
+        leaseExpiry:
+          type: string
+          format: date-time
+
+    SiteCapacity:
+      type: object
+      properties:
+        totalPorts:
+          type: integer
+        usedPorts:
+          type: integer
+        availablePorts:
+          type: integer
+        maxBandwidth:
+          $ref: '#/components/schemas/Quantity'
+        availableBandwidth:
+          $ref: '#/components/schemas/Quantity'
+        powerCapacity:
+          $ref: '#/components/schemas/Quantity'
+        coolingCapacity:
+          $ref: '#/components/schemas/Quantity'
+
+    ResourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        resourceType:
+          type: string
+
+    ServiceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        serviceType:
+          type: string
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    Link:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        linkType:
+          type: string
+        bandwidth:
+          $ref: '#/components/schemas/Quantity'
+        technology:
+          type: string
+
+    SiteTopology:
+      type: object
+      properties:
+        site:
+          $ref: '#/components/schemas/GeographicSite'
+        parentSites:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSite'
+        childSites:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSite'
+        connectedSites:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSite'
+        backupSites:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSite'
+        depth:
+          type: integer
+
+    SiteSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        siteType:
+          type: string
+          enum: [CENTRAL_OFFICE, POP, CELL_TOWER, DATA_CENTER, HUB, DISTRIBUTION_POINT, CUSTOMER_PREMISE]
+        technology:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PLANNED, UNDER_CONSTRUCTION, DECOMMISSIONED]
+        governorate:
+          type: string
+        city:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        radius:
+          type: number
+          description: Search radius in kilometers
+
+    Quantity:
+      type: object
+      properties:
+        amount:
+          type: number
+        units:
+          type: string
+
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

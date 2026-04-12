@@ -1,0 +1,343 @@
+openapi: 3.0.3
+info:
+  title: Yemen PTC BSS/OSS Platform API
+  description: TM Forum Open API Gateway for Yemen PTC BSS/OSS Platform
+  version: 5.0.0
+  contact:
+    name: Yemen PTC Engineering
+servers:
+  - url: http://localhost:8080
+    description: Local
+  - url: https://api.yemenptc.com
+    description: Production
+
+tags:
+  - name: TMF632 - Party Management
+    description: Customer and party management
+  - name: TMF669 - Party Role
+    description: Party role hierarchies
+  - name: TMF620 - Product Catalog
+    description: Product offerings and bundles
+  - name: TMF622 - Product Order
+    description: Product ordering
+  - name: TMF641 - Service Order
+    description: Service ordering with CFS decomposition
+  - name: TMF647 - Billing Account
+    description: Billing account management
+  - name: TMF657 - Bill
+    description: Invoice management
+  - name: TMF671 - Payment
+    description: Payment processing
+  - name: TMF638 - Resource Inventory
+    description: Network resource inventory
+  - name: TMF639 - Service Inventory
+    description: Active service inventory
+  - name: TMF650 - Balance
+    description: Real-time balance management
+  - name: TMF642 - Alarm
+    description: Network alarm management
+  - name: TMF645 - Trouble Ticket
+    description: Trouble ticket management
+  - name: TMF653 - Geographic Address
+    description: Address management with serviceability
+  - name: TMF656 - Geographic Site
+    description: Site management
+  - name: TMF684 - Agreement
+    description: SLA and agreement management
+  - name: TMF674 - Notification
+    description: Omni-channel notifications
+  - name: TMF688 - Campaign
+    description: Campaign and lead management
+
+paths:
+  /tmf-api/customerManagement/v5/party:
+    get:
+      tags: [TMF632 - Party Management]
+      summary: List parties
+      operationId: listParties
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyList'
+    post:
+      tags: [TMF632 - Party Management]
+      summary: Create party
+      operationId: createParty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Party'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyResponse'
+
+  /tmf-api/customerManagement/v5/party/{id}:
+    get:
+      tags: [TMF632 - Party Management]
+      summary: Get party by ID
+      operationId: getParty
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyResponse'
+        '404':
+          description: Not Found
+
+  /tmf-api/productOrderingManagement/v5/productOrder:
+    post:
+      tags: [TMF622 - Product Order]
+      summary: Create product order
+      operationId: createProductOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductOrder'
+      responses:
+        '201':
+          description: Created
+
+  /tmf-api/customerBillManagement/v5/billingAccount:
+    post:
+      tags: [TMF647 - Billing Account]
+      summary: Create billing account
+      operationId: createBillingAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillingAccount'
+      responses:
+        '201':
+          description: Created
+
+  /tmf-api/customerBillManagement/v5/bill:
+    post:
+      tags: [TMF657 - Bill]
+      summary: Create invoice
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Invoice'
+      responses:
+        '201':
+          description: Created
+
+  /tmf-api/customerBillManagement/v5/payment:
+    post:
+      tags: [TMF671 - Payment]
+      summary: Create payment
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Payment'
+      responses:
+        '201':
+          description: Created
+
+  /tmf-api/balanceManagement/v5/account/{id}/balance:
+    get:
+      tags: [TMF650 - Balance]
+      summary: Get account balance
+      operationId: getBalance
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Balance'
+
+  /tmf-api/alarmManagement/v5/alarm:
+    post:
+      tags: [TMF642 - Alarm]
+      summary: Create alarm
+      operationId: createAlarm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Alarm'
+      responses:
+        '201':
+          description: Created
+
+components:
+  schemas:
+    Party:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        primaryPhone:
+          type: string
+        email:
+          type: string
+        customerType:
+          type: string
+          enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        city:
+          type: string
+        governorate:
+          type: string
+
+    PartyResponse:
+      type: object
+      properties:
+        type:
+          type: string
+        data:
+          $ref: '#/components/schemas/Party'
+
+    PartyList:
+      type: object
+      properties:
+        type:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Party'
+        total:
+          type: integer
+        offset:
+          type: integer
+        limit:
+          type: integer
+
+    ProductOrder:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        orderType:
+          type: string
+          enum: [ACQUISITION, MODIFICATION, TERMINATION, SUSPENSION, TRANSFER]
+        channel:
+          type: string
+
+    BillingAccount:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        accountType:
+          type: string
+          enum: [BILLING, SERVICE]
+        serviceCategory:
+          type: string
+
+    Invoice:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        issueDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+
+    Payment:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        amount:
+          type: number
+        currency:
+          type: string
+        paymentMethod:
+          type: string
+
+    Balance:
+      type: object
+      properties:
+        accountId:
+          type: string
+        mainBalance:
+          type: number
+        bonusBalance:
+          type: number
+        currency:
+          type: string
+        reservedTotal:
+          type: number
+
+    Alarm:
+      type: object
+      properties:
+        severity:
+          type: string
+          enum: [CRITICAL, MAJOR, MINOR, WARNING, INDETERMINATE]
+        alarmType:
+          type: string
+        description:
+          type: string
+        source:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+        code:
+          type: string
+        reason:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,341 @@
+# ============================================================================
+# YEMEN PTC BSS/OSS PLATFORM - KUBERNETES DEPLOYMENT
+# BSS Core Services Deployment Manifest
+# ============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: bss-oss
+  labels:
+    app.kubernetes.io/part-of: yemen-ptc-bss
+    app.kubernetes.io/managed-by: kubectl
+
+---
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bss-core-config
+  namespace: bss-oss
+data:
+  application.yml: |
+    server:
+      port: 8080
+    
+    spring:
+      application:
+        name: bss-core-service
+      datasource:
+        url: jdbc:postgresql://postgresql:5432/bss_oss
+        driver-class-name: org.postgresql.Driver
+        hikari:
+          maximum-pool-size: 50
+          minimum-idle: 10
+          idle-timeout: 300000
+          connection-timeout: 20000
+      jpa:
+        hibernate:
+          ddl-auto: validate
+        properties:
+          hibernate:
+            dialect: org.hibernate.dialect.PostgreSQLDialect
+            format_sql: true
+      kafka:
+        bootstrap-servers: kafka:9092
+        producer:
+          key-serializer: org.apache.kafka.common.serialization.StringSerializer
+          value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+          acks: all
+          retries: 3
+        consumer:
+          group-id: bss-core-group
+          auto-offset-reset: earliest
+          key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+          value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      redis:
+        host: redis
+        port: 6379
+        timeout: 2000
+    
+    management:
+      endpoints:
+        web:
+          exposure:
+            include: health,info,metrics,prometheus
+      endpoint:
+        health:
+          show-details: always
+      metrics:
+        export:
+          prometheus:
+            enabled: true
+    
+    logging:
+      level:
+        com.yemenptc: INFO
+        org.springframework.kafka: WARN
+      pattern:
+        console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+# Secret for sensitive configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bss-core-secrets
+  namespace: bss-oss
+type: Opaque
+stringData:
+  DB_USERNAME: "bss_admin"
+  DB_PASSWORD: "change-me-in-production"
+  JWT_SECRET: "change-me-in-production"
+  KAFKA_SASL_PASSWORD: ""
+  VAULT_TOKEN: ""
+
+---
+# Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bss-core-sa
+  namespace: bss-oss
+  labels:
+    app.kubernetes.io/name: bss-core
+    app.kubernetes.io/component: service-account
+
+---
+# BSS Core Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bss-core
+  namespace: bss-oss
+  labels:
+    app.kubernetes.io/name: bss-core
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bss-core
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: bss-core
+        app.kubernetes.io/component: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      serviceAccountName: bss-core-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: bss-core
+          image: yemen-ptc/bss-core:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: management
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "production"
+            - name: JAVA_OPTS
+              value: "-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Xms512m -Xmx2g"
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: bss-core-secrets
+                  key: DB_USERNAME
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: bss-core-secrets
+                  key: DB_PASSWORD
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgresql:5432/bss_oss"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka:9092"
+            - name: SPRING_REDIS_HOST
+              value: "redis"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+            - name: logs-volume
+              mountPath: /app/logs
+      volumes:
+        - name: config-volume
+          configMap:
+            name: bss-core-config
+        - name: logs-volume
+          emptyDir: {}
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: bss-core
+  namespace: bss-oss
+  labels:
+    app.kubernetes.io/name: bss-core
+    app.kubernetes.io/component: backend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 9090
+      targetPort: management
+      protocol: TCP
+      name: management
+  selector:
+    app.kubernetes.io/name: bss-core
+
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bss-core-hpa
+  namespace: bss-oss
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bss-core
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+
+---
+# Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: bss-core-pdb
+  namespace: bss-oss
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: bss-core
+
+---
+# Network Policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bss-core-network-policy
+  namespace: bss-oss
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: bss-core
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: api-gateway
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+      ports:
+        - protocol: TCP
+          port: 9092
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53

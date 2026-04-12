@@ -1,0 +1,62 @@
+# ArgoCD ApplicationSet for multi-cluster deployment
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: bss-oss-apps
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - service: bss-core
+            path: bss-core
+            namespace: bss-oss
+          - service: charging-engine
+            path: charging-engine
+            namespace: bss-oss
+          - service: api-gateway
+            path: api-gateway
+            namespace: bss-oss
+  template:
+    metadata:
+      name: '{{service}}'
+      namespace: argocd
+    spec:
+      project: bss-oss
+      source:
+        repoURL: https://github.com/yemenptc/bss-oss
+        targetRevision: main
+        path: '{{path}}/k8s'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: bss-oss
+  namespace: argocd
+spec:
+  description: BSS/OSS Platform
+  sourceRepos:
+    - 'https://github.com/yemenptc/*'
+  destinations:
+    - namespace: 'bss-oss'
+      server: 'https://kubernetes.default.svc'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

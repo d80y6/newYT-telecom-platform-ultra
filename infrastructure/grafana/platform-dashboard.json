@@ -1,0 +1,222 @@
+{
+  "dashboard": {
+    "title": "Yemen PTC BSS/OSS Platform",
+    "uid": "yemenptc-bss-oss",
+    "tags": ["bss", "oss", "tmf"],
+    "timezone": "Asia/Aden",
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Order Throughput",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{service=\"bss-core\", uri=~\"/tmf-api/productOrderingManagement.*\", method=\"POST\"}[5m])",
+            "legendFormat": "Orders/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "API Latency p95",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95 latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.2, "color": "yellow" },
+                { "value": 0.5, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Charging Engine - CDRs/sec",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(cdrs_processed_total[5m])",
+            "legendFormat": "CDRs/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1000, "color": "yellow" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Charging Latency p99",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(charging_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.05, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Active Orders by Status",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "expr": "count by (status) (order_status_total)",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Invoice Status",
+        "type": "bargauge",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "expr": "count by (status) (invoice_status_total)",
+            "legendFormat": "{{status}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Kafka Consumer Lag",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "expr": "kafka_consumer_lag{topic=~\"party.events|order.events|usage.events\"}",
+            "legendFormat": "{{topic}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 1000, "color": "yellow" },
+                { "value": 10000, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m])",
+            "legendFormat": "Error rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.01, "color": "yellow" },
+                { "value": 0.05, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Database Connections",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 4, "x": 0, "y": 28 },
+        "targets": [
+          {
+            "expr": "hikaricp_connections_active",
+            "legendFormat": "Active"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 70, "color": "yellow" },
+                { "value": 90, "color": "red" }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Redis Connections",
+        "type": "gauge",
+        "gridPos": { "h": 4, "w": 4, "x": 4, "y": 28 },
+        "targets": [
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Connected"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "JVM Memory",
+        "type": "timeseries",
+        "gridPos": { "h": 4, "w": 4, "x": 8, "y": 28 },
+        "targets": [
+          {
+            "expr": "jvm_memory_used_bytes{area=\"heap\"}",
+            "legendFormat": "Heap Used"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes"
+          }
+        }
+      }
+    ]
+  }
+}

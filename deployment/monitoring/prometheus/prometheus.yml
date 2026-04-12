@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: 'bss-core'
+    metrics_path: '/api/v1/actuator/prometheus'
+    static_configs:
+      - targets: ['localhost:8080']
+        labels:
+          application: 'bss-core'
+          environment: 'development'
+
+  - job_name: 'api-gateway'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['localhost:3000']
+        labels:
+          application: 'api-gateway'
+
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['localhost:9092']
+        labels:
+          application: 'kafka'
+
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['localhost:5432']
+        labels:
+          application: 'postgresql'
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['localhost:6379']
+        labels:
+          application: 'redis'

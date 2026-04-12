@@ -1,0 +1,28 @@
+apiVersion: v2
+name: bss-core
+description: Yemen PTC BSS/OSS Core Platform Helm Chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - bss
+  - oss
+  - telecom
+  - billing
+  - charging
+dependencies:
+  - name: citus-postgresql
+    version: 1.0.0
+    repository: file://../citus-postgresql
+    condition: citus-postgresql.enabled
+  - name: kafka-kraft
+    version: 1.0.0
+    repository: file://../kafka-kraft
+    condition: kafka-kraft.enabled
+  - name: monitoring
+    version: 1.0.0
+    repository: file://../monitoring
+    condition: monitoring.enabled
+maintainers:
+  - name: Yemen PTC BSS Team
+    email: bss-team@yemenptc.com

@@ -1,0 +1,22 @@
+apiVersion: v2
+name: monitoring
+description: Monitoring stack for BSS/OSS platform (Prometheus, Grafana, AlertManager)
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+dependencies:
+  - name: prometheus
+    version: 25.0.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled
+  - name: grafana
+    version: 7.0.0
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+  - name: alertmanager
+    version: 1.0.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: alertmanager.enabled
+maintainers:
+  - name: Yemen PTC BSS Team
+    email: bss-team@yemenptc.com

@@ -1,0 +1,112 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bss-backup
+  namespace: bss-oss
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: bss-backup-sa
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Starting BSS backup at $(date)"
+                
+                # Backup PostgreSQL
+                PGPASSWORD=$POSTGRES_PASSWORD pg_dumpall -h postgres-primary -U postgres > /backups/postgres_$(date +%Y%m%d_%H%M%S).sql
+                
+                # Compress backup
+                gzip /backups/postgres_*.sql
+                
+                # Keep only last 7 daily backups
+                ls -t /backups/postgres_*.sql.gz | tail -n +8 | xargs -r rm -f
+                
+                # Upload to object storage (S3-compatible)
+                if [ -n "$BACKUP_S3_ENDPOINT" ]; then
+                  aws --endpoint-url=$BACKUP_S3_ENDPOINT s3 cp /backups/ s3://$BACKUP_S3_BUCKET/ --recursive
+                fi
+                
+                echo "Backup completed at $(date)"
+            env:
+              - name: POSTGRES_PASSWORD
+                valueFrom:
+                  secretKeyRef:
+                    name: bss-secrets
+                    key: postgres-password
+              - name: BACKUP_S3_ENDPOINT
+                valueFrom:
+                  secretKeyRef:
+                    name: bss-secrets
+                    key: backup-s3-endpoint
+              - name: BACKUP_S3_BUCKET
+                valueFrom:
+                  secretKeyRef:
+                    name: bss-secrets
+                    key: backup-s3-bucket
+            volumeMounts:
+              - name: backup-storage
+                mountPath: /backups
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: bss-backup-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bss-backup-pvc
+  namespace: bss-oss
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bss-backup-sa
+  namespace: bss-oss
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: bss-backup-role
+  namespace: bss-oss
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: bss-backup-rolebinding
+  namespace: bss-oss
+subjects:
+  - kind: ServiceAccount
+    name: bss-backup-sa
+    namespace: bss-oss
+roleRef:
+  kind: Role
+  name: bss-backup-role
+  apiGroup: rbac.authorization.k8s.io

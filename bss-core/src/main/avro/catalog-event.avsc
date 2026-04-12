@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "CatalogEvent",
+  "namespace": "com.yemenptc.bss.events.catalog",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string", "doc": "com.yemenptc.catalog.offering.created|updated|deleted"},
+    {"name": "offeringId", "type": "string", "doc": "TMF620 ProductOffering UUID"},
+    {"name": "name", "type": "string"},
+    {"name": "status", "type": {"type": "enum", "name": "CatalogStatus", "symbols": ["ACTIVE", "INACTIVE", "DRAFT", "RETIRED"]}},
+    {"name": "serviceType", "type": ["null", "string"], "default": null, "doc": "PSTN, FTTH, MPLS, HOSTING, 4G"},
+    {"name": "isBundle", "type": "boolean", "default": false},
+    {"name": "priceType", "type": ["null", {"type": "enum", "name": "PriceType", "symbols": ["ONE_TIME", "RECURRING", "USAGE"]}], "default": null},
+    {"name": "price", "type": ["null", "double"], "default": null},
+    {"name": "currency", "type": ["null", "string"], "default": null},
+    {"name": "timestamp", "type": "long"},
+    {"name": "correlationId", "type": ["null", "string"], "default": null},
+    {"name": "source", "type": "string", "default": "tmf620-catalog-mgmt"}
+  ]
+}

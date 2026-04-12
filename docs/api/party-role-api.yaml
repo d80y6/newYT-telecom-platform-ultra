@@ -1,0 +1,884 @@
+openapi: 3.0.3
+info:
+  title: Party Role Management API
+  description: |
+    TMF669-compliant Party Role Management API for Yemen PTC.
+    Manages party roles and role categories with support for role hierarchies.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Party Roles
+    description: Party role management
+  - name: Role Categories
+    description: Role category management
+  - name: Role Hierarchies
+    description: Role hierarchy relationships
+
+paths:
+  /partyRole/v4/partyRole:
+    get:
+      tags: [Party Roles]
+      summary: List all party roles
+      operationId: listPartyRoles
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, PENDING, TERMINATED]
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Customer, Administrator, Salesperson, Technician, Manager, Support, Billing, Engineer]
+        - name: party.name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: party.id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Party roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRoleList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Party Roles]
+      summary: Create a new party role
+      operationId: createPartyRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyRoleCreate'
+      responses:
+        '201':
+          description: Party role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /partyRole/v4/partyRole/{id}:
+    get:
+      tags: [Party Roles]
+      summary: Get party role by ID
+      operationId: getPartyRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Party role retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Party Roles]
+      summary: Update party role (partial)
+      operationId: updatePartyRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartyRoleUpdate'
+      responses:
+        '200':
+          description: Party role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Party Roles]
+      summary: Delete party role
+      operationId: deletePartyRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Party role deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /partyRole/v4/partyRole/{id}/hierarchy:
+    get:
+      tags: [Role Hierarchies]
+      summary: Get role hierarchy
+      operationId: getRoleHierarchy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [UP, DOWN, BOTH]
+            default: BOTH
+      responses:
+        '200':
+          description: Role hierarchy retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleHierarchy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /partyRole/v4/partyRole/{id}/childRoles:
+    post:
+      tags: [Role Hierarchies]
+      summary: Add child role
+      operationId: addChildRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleHierarchyRequest'
+      responses:
+        '200':
+          description: Child role added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartyRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /partyRole/v4/roleCategory:
+    get:
+      tags: [Role Categories]
+      summary: List all role categories
+      operationId: listRoleCategories
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Role categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCategoryList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Role Categories]
+      summary: Create a new role category
+      operationId: createRoleCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCategoryCreate'
+      responses:
+        '201':
+          description: Role category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /partyRole/v4/roleCategory/{id}:
+    get:
+      tags: [Role Categories]
+      summary: Get role category by ID
+      operationId: getRoleCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Role category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Role Categories]
+      summary: Update role category
+      operationId: updateRoleCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCategoryUpdate'
+      responses:
+        '200':
+          description: Role category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCategory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Role Categories]
+      summary: Delete role category
+      operationId: deleteRoleCategory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Role category deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    PartyRole:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the party role
+        href:
+          type: string
+          description: Reference URL to the party role
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING, TERMINATED]
+        statusChangeDate:
+          type: string
+          format: date-time
+        statusChangeReason:
+          type: string
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        engagedParty:
+          $ref: '#/components/schemas/PartyRefOrValue'
+        partyRoleSpecification:
+          $ref: '#/components/schemas/PartyRoleSpecificationRef'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        account:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountRef'
+        contactMedium:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMedium'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        agreement:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgreementRef'
+        parentRole:
+          $ref: '#/components/schemas/PartyRoleRef'
+        childRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRoleRef'
+        roleLevel:
+          type: integer
+          description: Hierarchy level (1 = highest)
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+      required:
+        - id
+        - href
+        - status
+
+    PartyRoleCreate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING, TERMINATED]
+          default: PENDING
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        engagedParty:
+          $ref: '#/components/schemas/PartyRefOrValue'
+        partyRoleSpecification:
+          $ref: '#/components/schemas/PartyRoleSpecificationRef'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        account:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccountRef'
+        contactMedium:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMedium'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        agreement:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgreementRef'
+        parentRole:
+          $ref: '#/components/schemas/PartyRoleRef'
+        roleLevel:
+          type: integer
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    PartyRoleUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING, TERMINATED]
+        statusChangeReason:
+          type: string
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        contactMedium:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactMedium'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    PartyRoleList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRole'
+
+    PartyRoleRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    PartyRefOrValue:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        partyType:
+          type: string
+          enum: [INDIVIDUAL, ORGANIZATION]
+
+    PartyRoleSpecificationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [Customer, Administrator, Salesperson, Technician, Manager, Support, Billing, Engineer]
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    AccountRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        accountType:
+          type: string
+
+    ContactMedium:
+      type: object
+      properties:
+        mediumType:
+          type: string
+          enum: [EMAIL, PHONE, POSTAL_ADDRESS, SMS]
+        preferred:
+          type: boolean
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          $ref: '#/components/schemas/MediumCharacteristic'
+
+    MediumCharacteristic:
+      type: object
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        emailAddress:
+          type: string
+        faxNumber:
+          type: string
+        phoneNumber:
+          type: string
+        postCode:
+          type: string
+        stateOrProvince:
+          type: string
+        street1:
+          type: string
+        street2:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    AgreementRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    RoleCategory:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        parentCategory:
+          $ref: '#/components/schemas/RoleCategoryRef'
+        subCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleCategoryRef'
+        roleSpecifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRoleSpecificationRef'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    RoleCategoryCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+          default: ACTIVE
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        parentCategory:
+          $ref: '#/components/schemas/RoleCategoryRef'
+        roleSpecifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRoleSpecificationRef'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    RoleCategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    RoleCategoryList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleCategory'
+
+    RoleCategoryRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    RoleHierarchy:
+      type: object
+      properties:
+        currentRole:
+          $ref: '#/components/schemas/PartyRole'
+        parentRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRole'
+        childRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRole'
+        siblingRoles:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartyRole'
+        depth:
+          type: integer
+        totalLevels:
+          type: integer
+
+    RoleHierarchyRequest:
+      type: object
+      properties:
+        childRoleId:
+          type: string
+        relationshipType:
+          type: string
+          enum: [REPORTS_TO, MANAGES, DELEGATES_TO]
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

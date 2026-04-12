@@ -1,0 +1,14 @@
+apiVersion: v2
+name: kafka-kraft
+description: Apache Kafka KRaft mode cluster (Zookeeper-less)
+type: application
+version: 1.0.0
+appVersion: "3.6.1"
+keywords:
+  - kafka
+  - kraft
+  - messaging
+  - event-streaming
+maintainers:
+  - name: Yemen PTC BSS Team
+    email: bss-team@yemenptc.com

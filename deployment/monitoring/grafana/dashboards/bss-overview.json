@@ -1,0 +1,99 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BSS/OSS Platform Overview",
+    "tags": ["bss", "oss", "yemen-ptc"],
+    "timezone": "Asia/Aden",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+        "targets": [{"expr": "up{job=~\"bss.*\"}", "legendFormat": "{{job}}"}]
+      },
+      {
+        "id": 2,
+        "title": "Total Customers",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+        "targets": [{"expr": "customers_total", "legendFormat": "Customers"}]
+      },
+      {
+        "id": 3,
+        "title": "Active Subscriptions",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+        "targets": [{"expr": "subscriptions_active_total", "legendFormat": "Active"}]
+      },
+      {
+        "id": 4,
+        "title": "Rating Latency (p95)",
+        "type": "gauge",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+        "targets": [{"expr": "histogram_quantile(0.95, rate(rating_duration_seconds_bucket[5m]))", "legendFormat": "p95"}],
+        "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"steps": [{"color": "green", "value": 0}, {"color": "yellow", "value": 0.05}, {"color": "red", "value": 0.1}]}}}
+      },
+      {
+        "id": 5,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+        "targets": [{"expr": "rate(http_server_requests_seconds_count[5m])", "legendFormat": "{{method}} {{uri}}"}]
+      },
+      {
+        "id": 6,
+        "title": "HTTP Latency",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+        "targets": [
+          {"expr": "histogram_quantile(0.5, rate(http_server_requests_seconds_bucket[5m]))", "legendFormat": "p50"},
+          {"expr": "histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m]))", "legendFormat": "p95"},
+          {"expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket[5m]))", "legendFormat": "p99"}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Kafka Consumer Lag",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "targets": [{"expr": "kafka_consumer_group_lag_sum", "legendFormat": "{{consumer_group}}"}]
+      },
+      {
+        "id": 8,
+        "title": "Database Connections",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "targets": [
+          {"expr": "hikaricp_connections_active", "legendFormat": "Active"},
+          {"expr": "hikaricp_connections_idle", "legendFormat": "Idle"},
+          {"expr": "hikaricp_connections_max", "legendFormat": "Max"}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Billing Operations",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "targets": [
+          {"expr": "rate(billing_recharge_total[5m])", "legendFormat": "Recharges"},
+          {"expr": "rate(billing_invoice_total[5m])", "legendFormat": "Invoices"},
+          {"expr": "rate(billing_payment_total[5m])", "legendFormat": "Payments"}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Order Processing",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "targets": [
+          {"expr": "rate(order_created_total[5m])", "legendFormat": "Created"},
+          {"expr": "rate(order_completed_total[5m])", "legendFormat": "Completed"},
+          {"expr": "rate(order_failed_total[5m])", "legendFormat": "Failed"}
+        ]
+      }
+    ],
+    "time": {"from": "now-6h", "to": "now"},
+    "refresh": "30s"
+  }
+}

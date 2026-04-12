@@ -1,0 +1,955 @@
+openapi: 3.0.3
+info:
+  title: Geographic Address Management API
+  description: |
+    TMF653-compliant Geographic Address Management API for Yemen PTC.
+    Manages geographic addresses with support for Yemen governorates and serviceability checks.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Geographic Addresses
+    description: Geographic address management
+  - name: Address Validation
+    description: Address validation and verification
+  - name: Serviceability
+    description: Serviceability and coverage checks
+  - name: Yemen Governorates
+    description: Yemen-specific administrative divisions
+
+paths:
+  /geographicAddress/v4/geographicAddress:
+    get:
+      tags: [Geographic Addresses]
+      summary: List all geographic addresses
+      operationId: listGeographicAddresses
+      parameters:
+        - name: city
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: governorate
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Sanaa, Aden, Taiz, Hodeidah, Mukalla, Ibb, Dhamar, Haja, Al-Mahwit, Amran, Saada, Al-Jawf, Marib, Shabwa, Abyan, Lahij, Al-Dhale, Raymah, Socotra]
+        - name: district
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: country
+          in: query
+          required: false
+          schema:
+            type: string
+            default: Yemen
+        - name: postcode
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, PENDING]
+        - name: serviceable
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Geographic addresses retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicAddressList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Geographic Addresses]
+      summary: Create a new geographic address
+      operationId: createGeographicAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeographicAddressCreate'
+      responses:
+        '201':
+          description: Geographic address created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicAddress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/geographicAddress/{id}:
+    get:
+      tags: [Geographic Addresses]
+      summary: Get geographic address by ID
+      operationId: getGeographicAddress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [site, serviceability]
+      responses:
+        '200':
+          description: Geographic address retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicAddress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Geographic Addresses]
+      summary: Update geographic address (partial)
+      operationId: updateGeographicAddress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeographicAddressUpdate'
+      responses:
+        '200':
+          description: Geographic address updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicAddress'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Geographic Addresses]
+      summary: Delete geographic address
+      operationId: deleteGeographicAddress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Geographic address deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/geographicAddress/{id}/serviceability:
+    get:
+      tags: [Serviceability]
+      summary: Check serviceability for address
+      operationId: checkServiceability
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serviceType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [FIXED_LINE, MOBILE_CDMA, MOBILE_4G, ADSL, FTTH, MPLS, PRI]
+      responses:
+        '200':
+          description: Serviceability check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceabilityResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/geographicAddress/validate:
+    post:
+      tags: [Address Validation]
+      summary: Validate address
+      operationId: validateAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressValidationRequest'
+      responses:
+        '200':
+          description: Address validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddressValidationResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/geographicAddress/search:
+    post:
+      tags: [Geographic Addresses]
+      summary: Search addresses
+      operationId: searchAddresses
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddressSearchRequest'
+      responses:
+        '200':
+          description: Address search completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeographicAddressList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/governorate:
+    get:
+      tags: [Yemen Governorates]
+      summary: List Yemen governorates
+      operationId: listGovernorates
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Governorates retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GovernorateList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/governorate/{code}:
+    get:
+      tags: [Yemen Governorates]
+      summary: Get governorate details
+      operationId: getGovernorate
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Governorate retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Governorate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /geographicAddress/v4/governorate/{code}/districts:
+    get:
+      tags: [Yemen Governorates]
+      summary: List districts in governorate
+      operationId: listDistricts
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Districts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DistrictList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    GeographicAddress:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the geographic address
+        href:
+          type: string
+          description: Reference URL to the geographic address
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+        streetNr:
+          type: string
+          description: Street number
+        streetNrSuffix:
+          type: string
+        streetNrLast:
+          type: string
+        streetNrLastSuffix:
+          type: string
+        streetName:
+          type: string
+        streetType:
+          type: string
+        streetSuffix:
+          type: string
+        postcode:
+          type: string
+        locality:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        stateOrProvince:
+          type: string
+        country:
+          type: string
+          default: Yemen
+        countryCode:
+          type: string
+          default: YE
+        addrLine1:
+          type: string
+        addrLine2:
+          type: string
+        formattedAddress:
+          type: string
+        yemenGovernorate:
+          $ref: '#/components/schemas/YemenGovernorate'
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        geographicSubAddress:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSubAddress'
+        associatedSite:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSiteRef'
+        serviceability:
+          $ref: '#/components/schemas/Serviceability'
+        validationStatus:
+          type: string
+          enum: [VALIDATED, UNVALIDATED, PENDING_VALIDATION, INVALID]
+        validationDate:
+          type: string
+          format: date-time
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+      required:
+        - id
+        - href
+        - status
+
+    GeographicAddressCreate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+          default: ACTIVE
+        streetNr:
+          type: string
+        streetNrSuffix:
+          type: string
+        streetNrLast:
+          type: string
+        streetNrLastSuffix:
+          type: string
+        streetName:
+          type: string
+        streetType:
+          type: string
+        streetSuffix:
+          type: string
+        postcode:
+          type: string
+        locality:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        stateOrProvince:
+          type: string
+        country:
+          type: string
+          default: Yemen
+        countryCode:
+          type: string
+          default: YE
+        addrLine1:
+          type: string
+        addrLine2:
+          type: string
+        yemenGovernorate:
+          $ref: '#/components/schemas/YemenGovernorate'
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        geographicSubAddress:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicSubAddress'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    GeographicAddressUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, PENDING]
+        streetNr:
+          type: string
+        streetName:
+          type: string
+        postcode:
+          type: string
+        locality:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        stateOrProvince:
+          type: string
+        yemenGovernorate:
+          $ref: '#/components/schemas/YemenGovernorate'
+        geographicLocation:
+          $ref: '#/components/schemas/GeographicLocation'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    GeographicAddressList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicAddress'
+
+    YemenGovernorate:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [SA, AD, TA, HO, MU, IB, DH, HA, MW, AM, SD, JF, MA, SH, AB, LA, DL, RA, SO]
+        name:
+          type: string
+          enum: [Sanaa, Aden, Taiz, Hodeidah, Mukalla, Ibb, Dhamar, Haja, Al-Mahwit, Amran, Saada, Al-Jawf, Marib, Shabwa, Abyan, Lahij, Al-Dhale, Raymah, Socotra]
+        nameAr:
+          type: string
+          description: Arabic name
+
+    GeographicLocation:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        geometryType:
+          type: string
+          enum: [Point, Polygon, LineString]
+        geometry:
+          $ref: '#/components/schemas/Geometry'
+        spatialRef:
+          type: string
+          default: WGS84
+
+    Geometry:
+      type: object
+      properties:
+        coordinates:
+          type: array
+          items:
+            type: number
+        type:
+          type: string
+
+    GeographicSubAddress:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        name:
+          type: string
+        subUnitNumber:
+          type: string
+        levelType:
+          type: string
+        levelNumber:
+          type: string
+        buildingName:
+          type: string
+        privateStreetNumber:
+          type: string
+        privateStreetName:
+          type: string
+
+    GeographicSiteRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        siteType:
+          type: string
+
+    Serviceability:
+      type: object
+      properties:
+        serviceable:
+          type: boolean
+        lastCheckDate:
+          type: string
+          format: date-time
+        availableServices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableService'
+        nearestSite:
+          $ref: '#/components/schemas/GeographicSiteRef'
+        estimatedDistance:
+          $ref: '#/components/schemas/Quantity'
+        serviceabilityReason:
+          type: string
+
+    AvailableService:
+      type: object
+      properties:
+        serviceType:
+          type: string
+          enum: [FIXED_LINE, MOBILE_CDMA, MOBILE_4G, ADSL, FTTH, MPLS, PRI]
+        available:
+          type: boolean
+        technology:
+          type: string
+        estimatedBandwidth:
+          $ref: '#/components/schemas/Quantity'
+        installationCost:
+          $ref: '#/components/schemas/Money'
+        monthlyCost:
+          $ref: '#/components/schemas/Money'
+
+    ServiceabilityResult:
+      type: object
+      properties:
+        addressId:
+          type: string
+        serviceable:
+          type: boolean
+        availableServices:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableService'
+        nearestInfrastructure:
+          $ref: '#/components/schemas/GeographicSiteRef'
+        estimatedDistance:
+          $ref: '#/components/schemas/Quantity'
+        checkDate:
+          type: string
+          format: date-time
+
+    AddressValidationRequest:
+      type: object
+      properties:
+        streetNr:
+          type: string
+        streetName:
+          type: string
+        city:
+          type: string
+        governorate:
+          type: string
+        district:
+          type: string
+        postcode:
+          type: string
+        country:
+          type: string
+          default: Yemen
+
+    AddressValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        normalizedAddress:
+          $ref: '#/components/schemas/GeographicAddress'
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/GeographicAddress'
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+
+    AddressSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        city:
+          type: string
+        governorate:
+          type: string
+        postcode:
+          type: string
+        serviceable:
+          type: boolean
+        maxDistance:
+          type: number
+        latitude:
+          type: number
+        longitude:
+          type: number
+
+    Governorate:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        nameAr:
+          type: string
+        capital:
+          type: string
+        population:
+          type: integer
+        area:
+          $ref: '#/components/schemas/Quantity'
+        districts:
+          type: array
+          items:
+            $ref: '#/components/schemas/District'
+        serviceCoverage:
+          $ref: '#/components/schemas/ServiceCoverage'
+
+    GovernorateList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Governorate'
+
+    District:
+      type: object
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        nameAr:
+          type: string
+        population:
+          type: integer
+        serviceable:
+          type: boolean
+
+    DistrictList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/District'
+
+    ServiceCoverage:
+      type: object
+      properties:
+        fixedLineCoverage:
+          type: number
+        mobileCoverage:
+          type: number
+        adslCoverage:
+          type: number
+        ftthCoverage:
+          type: number
+        lastUpdated:
+          type: string
+          format: date-time
+
+    Quantity:
+      type: object
+      properties:
+        amount:
+          type: number
+        units:
+          type: string
+
+    Money:
+      type: object
+      properties:
+        unit:
+          type: string
+          default: YER
+        value:
+          type: number
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    ValidationError:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

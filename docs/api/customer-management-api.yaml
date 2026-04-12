@@ -1,0 +1,1033 @@
+openapi: 3.0.3
+info:
+  title: Customer Management API
+  description: |
+    TMF632-compliant Customer Management API for Yemen PTC.
+    Supports Customer 360 view, account hierarchy, subscription management.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Customers
+    description: Customer management
+  - name: Accounts
+    description: Billing and service accounts
+  - name: Subscriptions
+    description: Subscription management
+  - name: Interactions
+    description: Customer interactions
+  - name: KYC
+    description: Know Your Customer verification
+
+paths:
+  /customers:
+    get:
+      tags: [Customers]
+      summary: List all customers
+      operationId: listCustomers
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, SUSPENDED, TERMINATED]
+        - name: customerType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        - name: nationalId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: msisdn
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Customers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+    post:
+      tags: [Customers]
+      summary: Create a new customer
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerCreate"
+      responses:
+        "201":
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Customer already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /customers/{customerId}:
+    get:
+      tags: [Customers]
+      summary: Get customer by ID
+      operationId: getCustomer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "Comma-separated: accounts,subscriptions,interactions"
+      responses:
+        "200":
+          description: Customer retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      tags: [Customers]
+      summary: Update customer
+      operationId: updateCustomer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /customers/{customerId}/accounts:
+    get:
+      tags: [Accounts]
+      summary: Get customer accounts
+      operationId: getCustomerAccounts
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: accountType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [BILLING, SERVICE]
+      responses:
+        "200":
+          description: Accounts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountList"
+    post:
+      tags: [Accounts]
+      summary: Create account for customer
+      operationId: createCustomerAccount
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountCreate"
+      responses:
+        "201":
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /customers/{customerId}/subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Get customer subscriptions
+      operationId: getCustomerSubscriptions
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, SUSPENDED, TERMINATED]
+        - name: serviceType
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscriptions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionList"
+
+  /customers/{customerId}/subscriptions/{subscriptionId}:
+    get:
+      tags: [Subscriptions]
+      summary: Get subscription by ID
+      operationId: getSubscription
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /customers/{customerId}/subscriptions/{subscriptionId}/suspend:
+    post:
+      tags: [Subscriptions]
+      summary: Suspend subscription
+      operationId: suspendSubscription
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspendRequest"
+      responses:
+        "200":
+          description: Subscription suspended successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /customers/{customerId}/subscriptions/{subscriptionId}/resume:
+    post:
+      tags: [Subscriptions]
+      summary: Resume subscription
+      operationId: resumeSubscription
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription resumed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /customers/{customerId}/subscriptions/{subscriptionId}/terminate:
+    post:
+      tags: [Subscriptions]
+      summary: Terminate subscription
+      operationId: terminateSubscription
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TerminateRequest"
+      responses:
+        "200":
+          description: Subscription terminated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+
+  /customers/{customerId}/interactions:
+    get:
+      tags: [Interactions]
+      summary: Get customer interactions
+      operationId: getCustomerInteractions
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SERVICE_REQUEST, COMPLAINT, INQUIRY, TRANSACTION]
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Interactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InteractionList"
+
+  /customers/{customerId}/kyc/verify:
+    post:
+      tags: [KYC]
+      summary: Verify customer KYC
+      operationId: verifyCustomerKyc
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KycVerificationRequest"
+      responses:
+        "200":
+          description: KYC verification completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KycVerificationResult"
+
+  /customers/{customerId}/balance:
+    get:
+      tags: [Customers]
+      summary: Get customer balance
+      operationId: getCustomerBalance
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerBalance"
+
+  /customers/{customerId}/recharge:
+    post:
+      tags: [Customers]
+      summary: Recharge customer account
+      operationId: rechargeCustomer
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RechargeRequest"
+      responses:
+        "200":
+          description: Recharge successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RechargeResult"
+
+  /customers/search:
+    post:
+      tags: [Customers]
+      summary: Search customers
+      operationId: searchCustomers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerSearchRequest"
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerList"
+
+components:
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        externalId:
+          type: string
+        customerType:
+          type: string
+          enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, TERMINATED]
+        identity:
+          $ref: "#/components/schemas/CustomerIdentity"
+        contactInfo:
+          $ref: "#/components/schemas/ContactInfo"
+        demographics:
+          $ref: "#/components/schemas/Demographics"
+        kycLevel:
+          type: string
+          enum: [BASIC, FULL, PREMIUM]
+        kycVerified:
+          type: boolean
+        segment:
+          type: string
+        churnRiskScore:
+          type: number
+          format: double
+        lifetimeValue:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - customerType
+        - status
+        - identity
+        - createdAt
+
+    CustomerCreate:
+      type: object
+      properties:
+        customerType:
+          type: string
+          enum: [RESIDENTIAL, BUSINESS, ENTERPRISE, GOVERNMENT]
+        identity:
+          $ref: "#/components/schemas/CustomerIdentityCreate"
+        contactInfo:
+          $ref: "#/components/schemas/ContactInfoCreate"
+        demographics:
+          $ref: "#/components/schemas/DemographicsCreate"
+      required:
+        - customerType
+        - identity
+        - contactInfo
+
+    CustomerUpdate:
+      type: object
+      properties:
+        contactInfo:
+          $ref: "#/components/schemas/ContactInfoCreate"
+        demographics:
+          $ref: "#/components/schemas/DemographicsCreate"
+
+    CustomerIdentity:
+      type: object
+      properties:
+        nationalId:
+          type: string
+        passportNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER]
+        nationality:
+          type: string
+
+    CustomerIdentityCreate:
+      type: object
+      properties:
+        nationalId:
+          type: string
+        passportNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER]
+        nationality:
+          type: string
+      required:
+        - firstName
+        - lastName
+        - nationalId
+
+    ContactInfo:
+      type: object
+      properties:
+        primaryPhone:
+          type: string
+        secondaryPhone:
+          type: string
+        email:
+          type: string
+        address:
+          $ref: "#/components/schemas/Address"
+        preferredContactMethod:
+          type: string
+          enum: [PHONE, EMAIL, SMS, WHATSAPP]
+
+    ContactInfoCreate:
+      type: object
+      properties:
+        primaryPhone:
+          type: string
+        secondaryPhone:
+          type: string
+        email:
+          type: string
+        address:
+          $ref: "#/components/schemas/AddressCreate"
+        preferredContactMethod:
+          type: string
+          enum: [PHONE, EMAIL, SMS, WHATSAPP]
+      required:
+        - primaryPhone
+        - address
+
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        governorate:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+
+    AddressCreate:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        governorate:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+          default: YE
+      required:
+        - city
+        - governorate
+
+    Demographics:
+      type: object
+      properties:
+        occupation:
+          type: string
+        employer:
+          type: string
+        incomeLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        languagePreference:
+          type: string
+          enum: [AR, EN]
+
+    DemographicsCreate:
+      type: object
+      properties:
+        occupation:
+          type: string
+        employer:
+          type: string
+        incomeLevel:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        languagePreference:
+          type: string
+          enum: [AR, EN]
+          default: AR
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+          enum: [BILLING, SERVICE]
+        serviceCategory:
+          type: string
+          enum: [FIXED_LINE, MOBILE, BROADBAND, HOSTING, ENTERPRISE]
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, CLOSED]
+        balance:
+          type: number
+        creditLimit:
+          type: number
+        paymentMethod:
+          type: string
+        billingCycle:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AccountCreate:
+      type: object
+      properties:
+        accountType:
+          type: string
+          enum: [BILLING, SERVICE]
+        serviceCategory:
+          type: string
+          enum: [FIXED_LINE, MOBILE, BROADBAND, HOSTING, ENTERPRISE]
+        creditLimit:
+          type: number
+        billingCycle:
+          type: string
+      required:
+        - accountType
+        - serviceCategory
+
+    AccountList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Account"
+        total:
+          type: integer
+
+    AccountRef:
+      type: object
+      properties:
+        id:
+          type: string
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+        subscriptionNumber:
+          type: string
+        serviceType:
+          type: string
+          enum: [FIXED_LINE, MOBILE_CDMA, MOBILE_4G, ADSL, FTTH, HOSTING, MPLS, PRI]
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, TERMINATED, PENDING]
+        productOffering:
+          $ref: "#/components/schemas/ProductOfferingRef"
+        serviceIdentifier:
+          type: string
+        planDetails:
+          $ref: "#/components/schemas/PlanDetails"
+        commitment:
+          $ref: "#/components/schemas/CommitmentDetails"
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SubscriptionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subscription"
+        total:
+          type: integer
+
+    SubscriptionRef:
+      type: object
+      properties:
+        id:
+          type: string
+        serviceType:
+          type: string
+        status:
+          type: string
+
+    PlanDetails:
+      type: object
+      properties:
+        planName:
+          type: string
+        monthlyFee:
+          type: number
+        includedVoiceMinutes:
+          type: integer
+        includedDataGB:
+          type: number
+        includedSms:
+          type: integer
+        speedMbps:
+          type: number
+
+    CommitmentDetails:
+      type: object
+      properties:
+        duration:
+          type: integer
+        unit:
+          type: string
+          enum: [MONTHS, YEARS]
+        earlyTerminationFee:
+          type: number
+
+    SuspendRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        suspensionType:
+          type: string
+          enum: [CUSTOMER_REQUEST, PAYMENT_DEFAULT, FRAUD, TECHNICAL]
+      required:
+        - reason
+        - suspensionType
+
+    TerminateRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+        terminationType:
+          type: string
+          enum: [VOLUNTARY, INVOLUNTARY, NUMBER_PORTABILITY]
+        effectiveDate:
+          type: string
+          format: date
+      required:
+        - reason
+        - terminationType
+
+    Interaction:
+      type: object
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [SERVICE_REQUEST, COMPLAINT, INQUIRY, TRANSACTION]
+        subject:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        priority:
+          type: string
+          enum: [LOW, MEDIUM, HIGH, CRITICAL]
+        channel:
+          type: string
+          enum: [PHONE, EMAIL, WEB, MOBILE_APP, WALK_IN, SOCIAL]
+        createdAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+
+    InteractionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Interaction"
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    CustomerList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Customer"
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    CustomerSearchRequest:
+      type: object
+      properties:
+        query:
+          type: string
+        filters:
+          type: object
+          additionalProperties: true
+        page:
+          type: integer
+          default: 0
+        size:
+          type: integer
+          default: 20
+
+    CustomerBalance:
+      type: object
+      properties:
+        customerId:
+          type: string
+        mainBalance:
+          type: number
+        bonusBalance:
+          type: number
+        dataQuotaGB:
+          type: number
+        voiceMinutes:
+          type: integer
+        smsCount:
+          type: integer
+        validityEndDate:
+          type: string
+          format: date-time
+
+    RechargeRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+          enum: [CASH, CARD, BANK_TRANSFER, VOUCHER, MOBILE_MONEY]
+        voucherCode:
+          type: string
+      required:
+        - amount
+        - paymentMethod
+
+    RechargeResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        newBalance:
+          type: number
+        validityExtension:
+          type: string
+        message:
+          type: string
+
+    KycVerificationRequest:
+      type: object
+      properties:
+        documentType:
+          type: string
+          enum: [NATIONAL_ID, PASSPORT, DRIVING_LICENSE, RESIDENCE_PERMIT]
+        documentNumber:
+          type: string
+      required:
+        - documentType
+        - documentNumber
+
+    KycVerificationResult:
+      type: object
+      properties:
+        verified:
+          type: boolean
+        level:
+          type: string
+          enum: [BASIC, FULL, PREMIUM]
+        verifiedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+
+    ProductOfferingRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        serviceType:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string

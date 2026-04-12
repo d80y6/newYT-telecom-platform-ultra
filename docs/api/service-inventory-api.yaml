@@ -1,0 +1,857 @@
+openapi: 3.0.3
+info:
+  title: Service Inventory Management API
+  description: |
+    TMF639-compliant Service Inventory Management API for Yemen PTC.
+    Manages customer services (Fixed, Mobile, Internet, Enterprise) throughout their lifecycle.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Services
+    description: Service lifecycle management
+  - name: Service Specifications
+    description: Service specification management
+  - name: Service Categories
+    description: Service classification
+  - name: Service Tests
+    description: Service testing and diagnostics
+  - name: Service Relationships
+    description: Service topology and relationships
+
+paths:
+  /serviceInventory/v4/service:
+    get:
+      tags: [Services]
+      summary: List all services
+      operationId: listServices
+      parameters:
+        - name: serviceType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [FIXED_LINE, MOBILE_CDMA, MOBILE_4G, ADSL, FTTH, MPLS, PRI, HOSTING]
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DESIGNED, RESERVED, ACTIVE, INACTIVE, PENDING_TERMINATION, TERMINATED]
+        - name: customerId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: serviceSpecification
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Services retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceList'
+    post:
+      tags: [Services]
+      summary: Create a new service
+      operationId: createService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceCreate'
+      responses:
+        '201':
+          description: Service created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /serviceInventory/v4/service/{id}:
+    get:
+      tags: [Services]
+      summary: Get service by ID
+      operationId: getService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fields
+          in: query
+          schema:
+            type: string
+            description: Comma-separated field list
+      responses:
+        '200':
+          description: Service retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+        '404':
+          description: Service not found
+    patch:
+      tags: [Services]
+      summary: Update service
+      operationId: updateService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceUpdate'
+      responses:
+        '200':
+          description: Service updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+    delete:
+      tags: [Services]
+      summary: Terminate service
+      operationId: terminateService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Service terminated successfully
+
+  /serviceInventory/v4/service/{id}/state:
+    patch:
+      tags: [Services]
+      summary: Change service state
+      operationId: changeServiceState
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceStateChange'
+      responses:
+        '200':
+          description: State changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /serviceInventory/v4/service/{id}/characteristics:
+    get:
+      tags: [Services]
+      summary: Get service characteristics
+      operationId: getServiceCharacteristics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Characteristics retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Characteristic'
+    patch:
+      tags: [Services]
+      summary: Update service characteristics
+      operationId: updateServiceCharacteristics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Characteristic'
+      responses:
+        '200':
+          description: Characteristics updated
+
+  /serviceInventory/v4/service/{id}/relationships:
+    get:
+      tags: [Service Relationships]
+      summary: Get service relationships
+      operationId: getServiceRelationships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: relationshipType
+          in: query
+          schema:
+            type: string
+            enum: [DEPENDS_ON, DEPENDENCY_OF, CONTAINS, PART_OF, REPLACES]
+      responses:
+        '200':
+          description: Relationships retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceRelationship'
+    post:
+      tags: [Service Relationships]
+      summary: Create service relationship
+      operationId: createServiceRelationship
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceRelationshipCreate'
+      responses:
+        '201':
+          description: Relationship created
+
+  /serviceInventory/v4/service/{id}/test:
+    post:
+      tags: [Service Tests]
+      summary: Test service connectivity/quality
+      operationId: testService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceTestRequest'
+      responses:
+        '200':
+          description: Test completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTestResult'
+
+  /serviceInventory/v4/service/{id}/alarms:
+    get:
+      tags: [Services]
+      summary: Get service alarms
+      operationId: getServiceAlarms
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [CRITICAL, MAJOR, MINOR, WARNING, INDETERMINATE]
+      responses:
+        '200':
+          description: Alarms retrieved
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceAlarm'
+
+  /serviceInventory/v4/serviceSpecification:
+    get:
+      tags: [Service Specifications]
+      summary: List service specifications
+      operationId: listServiceSpecifications
+      responses:
+        '200':
+          description: Specifications retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSpecificationList'
+    post:
+      tags: [Service Specifications]
+      summary: Create service specification
+      operationId: createServiceSpecification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceSpecificationCreate'
+      responses:
+        '201':
+          description: Specification created
+
+  /serviceInventory/v4/serviceSpecification/{id}:
+    get:
+      tags: [Service Specifications]
+      summary: Get service specification by ID
+      operationId: getServiceSpecification
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Specification retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSpecification'
+
+  /serviceInventory/v4/search:
+    post:
+      tags: [Services]
+      summary: Search services
+      operationId: searchServices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceSearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceList'
+
+  /serviceInventory/v4/service/{id}/suspend:
+    post:
+      tags: [Services]
+      summary: Suspend service
+      operationId: suspendService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuspendRequest'
+      responses:
+        '200':
+          description: Service suspended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /serviceInventory/v4/service/{id}/resume:
+    post:
+      tags: [Services]
+      summary: Resume service
+      operationId: resumeService
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Service resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+components:
+  schemas:
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        name:
+          type: string
+        serviceType:
+          type: string
+          enum: [FIXED_LINE, MOBILE_CDMA, MOBILE_4G, ADSL, FTTH, MPLS, PRI, HOSTING]
+        serviceSpecification:
+          $ref: '#/components/schemas/ServiceSpecificationRef'
+        state:
+          type: string
+          enum: [DESIGNED, RESERVED, ACTIVE, INACTIVE, PENDING_TERMINATION, TERMINATED]
+        serviceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        serviceRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRelationship'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/Place'
+        serviceOrder:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderRef'
+        supportingResource:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        supportingService:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceRef'
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        baseType:
+          type: string
+        schemaLocation:
+          type: string
+        type:
+          type: string
+
+    ServiceCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        serviceType:
+          type: string
+        serviceSpecificationId:
+          type: string
+        serviceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicCreate'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPartyCreate'
+        place:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceCreate'
+        supportingResource:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRefCreate'
+
+    ServiceUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        state:
+          type: string
+        serviceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    ServiceStateChange:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [DESIGNED, RESERVED, ACTIVE, INACTIVE, PENDING_TERMINATION, TERMINATED]
+        reason:
+          type: string
+
+    ServiceList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    ServiceSpecification:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        serviceType:
+          type: string
+        lifecycleStatus:
+          type: string
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+        serviceSpecCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicSpecification'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        resourceSpecification:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceSpecificationRef'
+
+    ServiceSpecificationCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        serviceType:
+          type: string
+        version:
+          type: string
+        serviceSpecCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicSpecification'
+
+    ServiceSpecificationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceSpecification'
+        total:
+          type: integer
+
+    ServiceSpecificationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+
+    ServiceRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        relationshipType:
+          type: string
+          enum: [DEPENDS_ON, DEPENDENCY_OF, CONTAINS, PART_OF, REPLACES]
+        service:
+          $ref: '#/components/schemas/ServiceRef'
+
+    ServiceRelationshipCreate:
+      type: object
+      properties:
+        relationshipType:
+          type: string
+        serviceId:
+          type: string
+
+    ServiceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        serviceType:
+          type: string
+
+    ServiceTestRequest:
+      type: object
+      properties:
+        testType:
+          type: string
+          enum: [CONNECTIVITY, SPEED, QUALITY, PING, TRACEROUTE]
+        parameters:
+          type: object
+          additionalProperties:
+            type: string
+
+    ServiceTestResult:
+      type: object
+      properties:
+        testId:
+          type: string
+        status:
+          type: string
+          enum: [SUCCESS, FAILED, PARTIAL, ERROR]
+        result:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Test duration in milliseconds
+
+    ServiceAlarm:
+      type: object
+      properties:
+        id:
+          type: string
+        severity:
+          type: string
+        status:
+          type: string
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    SuspendRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          enum: [CUSTOMER_REQUEST, PAYMENT_DEFAULT, FRAUD, TECHNICAL, TEMPORARY]
+        effectiveDate:
+          type: string
+          format: date-time
+
+    ResourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    ResourceRefCreate:
+      type: object
+      properties:
+        id:
+          type: string
+
+    ResourceSpecificationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    ServiceOrderRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        serviceOrderItemId:
+          type: string
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    PlaceCreate:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    CharacteristicCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    CharacteristicSpecification:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        valueType:
+          type: string
+        configurable:
+          type: boolean
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    RelatedPartyCreate:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    ServiceSearchRequest:
+      type: object
+      properties:
+        serviceType:
+          type: string
+        state:
+          type: string
+        customerId:
+          type: string
+        page:
+          type: integer
+        size:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string

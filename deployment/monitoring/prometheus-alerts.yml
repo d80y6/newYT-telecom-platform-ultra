@@ -1,0 +1,82 @@
+groups:
+- name: bss-core-alerts
+  rules:
+  - alert: HighOrderFailureRate
+    expr: rate(bss_orders_failed_total[5m]) > 0.1
+    for: 2m
+    labels:
+      severity: critical
+      component: ordering
+    annotations:
+      summary: "High order failure rate detected"
+      description: "Order failure rate is {{ $value }} per second. Immediate action required."
+
+  - alert: HighPaymentFailureRate
+    expr: rate(bss_payments_failed_total[5m]) > 0.05
+    for: 2m
+    labels:
+      severity: critical
+      component: billing
+    annotations:
+      summary: "High payment failure rate detected"
+      description: "Payment failure rate is {{ $value }} per second. Check payment gateway."
+
+  - alert: CircuitBreakerOpen
+    expr: resilience4j_circuitbreaker_state{state="open"} == 1
+    for: 1m
+    labels:
+      severity: warning
+      component: resilience
+    annotations:
+      summary: "Circuit breaker opened"
+      description: "Circuit breaker {{ $labels.name }} is OPEN. Service may be degraded."
+
+  - alert: HighOrderProcessingTime
+    expr: histogram_quantile(0.95, rate(bss_orders_processing_time_bucket[5m])) > 1000
+    for: 5m
+    labels:
+      severity: warning
+      component: performance
+    annotations:
+      summary: "Order processing time above threshold"
+      description: "P95 order processing time is {{ $value }}ms, exceeds 1000ms threshold."
+
+  - alert: HighProvisioningTime
+    expr: rate(bss_provisioning_time_sum[5m]) / rate(bss_provisioning_time_count[5m]) > 30000
+    for: 10m
+    labels:
+      severity: warning
+      component: provisioning
+    annotations:
+      summary: "Provisioning time above threshold"
+      description: "Average provisioning time is {{ $value }}ms, exceeds 30s threshold."
+
+  - alert: HighActiveOrders
+    expr: bss_orders_active > 1000
+    for: 5m
+    labels:
+      severity: info
+      component: capacity
+    annotations:
+      summary: "High number of active orders"
+      description: "There are {{ $value }} active orders. Consider scaling."
+
+  - alert: DatabaseConnectionPoolExhausted
+    expr: hikaricp_connections_active / hikaricp_connections_max > 0.9
+    for: 2m
+    labels:
+      severity: critical
+      component: database
+    annotations:
+      summary: "Database connection pool nearly exhausted"
+      description: "Connection pool usage is {{ $value | humanizePercentage }}. Check for leaks."
+
+  - alert: KafkaConsumerLag
+    expr: kafka_consumer_group_lag > 100
+    for: 5m
+    labels:
+      severity: warning
+      component: messaging
+    annotations:
+      summary: "Kafka consumer lag detected"
+      description: "Consumer lag is {{ $value }} messages. Check processing capacity."

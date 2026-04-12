@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.yemenptc.bss.events.order",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string", "doc": "com.yemenptc.order.created|updated|completed|cancelled"},
+    {"name": "orderId", "type": "string", "doc": "TMF622 ProductOrder UUID"},
+    {"name": "orderNumber", "type": "string"},
+    {"name": "partyId", "type": "string", "doc": "Customer UUID"},
+    {"name": "orderType", "type": {"type": "enum", "name": "OrderType", "symbols": ["ACQUISITION", "MODIFICATION", "TERMINATION", "SUSPENSION", "TRANSFER"]}},
+    {"name": "status", "type": {"type": "enum", "name": "OrderStatus", "symbols": ["ACKNOWLEDGED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "FAILED"]}},
+    {"name": "priority", "type": {"type": "enum", "name": "OrderPriority", "symbols": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]}, "default": "MEDIUM"},
+    {"name": "channel", "type": ["null", "string"], "default": null},
+    {"name": "timestamp", "type": "long"},
+    {"name": "correlationId", "type": ["null", "string"], "default": null},
+    {"name": "source", "type": "string", "default": "tmf622-order-mgmt"}
+  ]
+}

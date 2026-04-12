@@ -1,0 +1,319 @@
+# ============================================================================
+# BSS/OSS Core Platform Configuration
+# ============================================================================
+
+global:
+  namespace: bss-oss
+  environment: production
+  region: yemen
+  domain: yemenptc.com
+  
+  # Image defaults
+  imageRegistry: "registry.yemenptc.com"
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets: []
+
+# ============================================================================
+# Microservices Configuration
+# ============================================================================
+
+services:
+  # API Gateway
+  api-gateway:
+    enabled: true
+    image:
+      repository: yemenptc/api-gateway
+      tag: latest
+    replicaCount: 3
+    service:
+      type: ClusterIP
+      port: 8080
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        nginx.ingress.kubernetes.io/rate-limit: "100"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - host: api.yemenptc.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: api-gateway-tls
+          hosts:
+            - api.yemenptc.com
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+      # KEDA scaling based on request rate
+      keda:
+        enabled: true
+        triggers:
+          - type: prometheus
+            metadata:
+              serverAddress: http://prometheus:9090
+              metricName: http_requests_total
+              threshold: "1000"
+              query: sum(rate(http_requests_total{service="api-gateway"}[2m]))
+
+  # BSS Core Service
+  bss-core:
+    enabled: true
+    image:
+      repository: yemenptc/bss-core
+      tag: latest
+    replicaCount: 3
+    service:
+      type: ClusterIP
+      port: 8080
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 20
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+      keda:
+        enabled: true
+        triggers:
+          - type: prometheus
+            metadata:
+              serverAddress: http://prometheus:9090
+              metricName: hikaricp_connections_active
+              threshold: "80"
+              query: avg(hikaricp_connections_active{service="bss-core"})
+
+  # Charging Engine
+  charging-engine:
+    enabled: true
+    image:
+      repository: yemenptc/charging-engine
+      tag: latest
+    replicaCount: 5
+    service:
+      type: ClusterIP
+      port: 8081
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "2000m"
+      limits:
+        memory: "4Gi"
+        cpu: "4000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 5
+      maxReplicas: 50
+      targetCPUUtilizationPercentage: 60
+      keda:
+        enabled: true
+        triggers:
+          - type: kafka
+            metadata:
+              bootstrapServers: kafka-kraft:9092
+              consumerGroup: charging-engine-group
+              topic: bss.billing.charges
+              lagThreshold: "100"
+
+  # Customer Service
+  customer-service:
+    enabled: true
+    image:
+      repository: yemenptc/customer-service
+      tag: latest
+    replicaCount: 3
+    service:
+      type: ClusterIP
+      port: 8082
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+
+  # Billing Service
+  billing-service:
+    enabled: true
+    image:
+      repository: yemenptc/billing-service
+      tag: latest
+    replicaCount: 3
+    service:
+      type: ClusterIP
+      port: 8083
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 15
+
+  # Order Service
+  order-service:
+    enabled: true
+    image:
+      repository: yemenptc/order-service
+      tag: latest
+    replicaCount: 3
+    service:
+      type: ClusterIP
+      port: 8084
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 15
+
+# ============================================================================
+# Database Dependencies
+# ============================================================================
+
+citus-postgresql:
+  enabled: true
+  global:
+    storageClass: fast-ssd
+    postgresql:
+      username: bss_admin
+      database: bss_oss
+      existingSecret: citus-postgresql-credentials
+  coordinator:
+    replicas: 2
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+    persistence:
+      size: 100Gi
+  workers:
+    count: 3
+    resources:
+      requests:
+        memory: "8Gi"
+        cpu: "4000m"
+      limits:
+        memory: "16Gi"
+        cpu: "8000m"
+    persistence:
+      size: 500Gi
+
+# ============================================================================
+# Kafka Dependencies
+# ============================================================================
+
+kafka-kraft:
+  enabled: true
+  controllers:
+    replicaCount: 3
+    persistence:
+      size: 50Gi
+  brokers:
+    replicaCount: 3
+    persistence:
+      size: 500Gi
+  topics:
+    replicationFactor: 3
+    minInSyncReplicas: 2
+
+# ============================================================================
+# Monitoring Dependencies
+# ============================================================================
+
+monitoring:
+  enabled: true
+  prometheus:
+    retention: 30d
+    storage:
+      size: 500Gi
+  grafana:
+    enabled: true
+    admin:
+      user: admin
+      existingSecret: grafana-credentials
+  alerting:
+    enabled: true
+    alertmanager:
+      enabled: true
+      config:
+        receivers:
+          - name: default
+            slack:
+              apiURL: "https://hooks.slack.com/services/..."
+              channel: "#bss-alerts"
+          - name: pagerduty
+            pagerduty:
+              service_key: "your-service-key"
+
+# ============================================================================
+# Service Mesh (Istio)
+# ============================================================================
+
+istio:
+  enabled: true
+  mtls:
+    mode: STRICT
+  gateways:
+    enabled: true
+    tls:
+      enabled: true
+
+# ============================================================================
+# Network Policies
+# ============================================================================
+
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: bss-oss
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: bss-oss
+
+# ============================================================================
+# Pod Disruption Budgets
+# ============================================================================
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

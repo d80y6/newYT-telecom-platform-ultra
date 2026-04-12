@@ -1,0 +1,1022 @@
+openapi: 3.0.3
+info:
+  title: Trouble Ticket Management API
+  description: |
+    TMF645-compliant Trouble Ticket Management API for Yemen PTC.
+    Manages trouble tickets throughout their lifecycle with ticket tasks and priorities.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Tickets
+    description: Trouble ticket lifecycle management
+  - name: Ticket Tasks
+    description: Individual tasks within trouble tickets
+  - name: Attachments
+    description: Ticket attachments and documentation
+
+paths:
+  /troubleTicket/v4/troubleTicket:
+    get:
+      tags: [Tickets]
+      summary: List all trouble tickets
+      operationId: listTroubleTickets
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CREATED, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED]
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        - name: ticketType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SERVICE_OUTAGE, PERFORMANCE_DEGRADATION, BILLING_ISSUE, INSTALLATION_PROBLEM, NETWORK_ISSUE, GENERAL_INQUIRY]
+        - name: relatedEntity.id
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: relatedParty.name
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: creationDate.gte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: creationDate.lte
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Trouble tickets retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TroubleTicketList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Tickets]
+      summary: Create a new trouble ticket
+      operationId: createTroubleTicket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TroubleTicketCreate'
+      responses:
+        '201':
+          description: Trouble ticket created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TroubleTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /troubleTicket/v4/troubleTicket/{id}:
+    get:
+      tags: [Tickets]
+      summary: Get trouble ticket by ID
+      operationId: getTroubleTicket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expand
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ticketTask, relatedParty, relatedEntity]
+      responses:
+        '200':
+          description: Trouble ticket retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TroubleTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Tickets]
+      summary: Update trouble ticket (partial)
+      operationId: updateTroubleTicket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TroubleTicketUpdate'
+      responses:
+        '200':
+          description: Trouble ticket updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TroubleTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /troubleTicket/v4/troubleTicket/{id}/status:
+    patch:
+      tags: [Tickets]
+      summary: Update trouble ticket status
+      operationId: updateTroubleTicketStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusChange'
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TroubleTicket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /troubleTicket/v4/troubleTicket/{id}/ticketTask:
+    get:
+      tags: [Ticket Tasks]
+      summary: List ticket tasks
+      operationId: listTicketTasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [CREATED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Ticket tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTaskList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Ticket Tasks]
+      summary: Create ticket task
+      operationId: createTicketTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketTaskCreate'
+      responses:
+        '201':
+          description: Ticket task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTask'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /troubleTicket/v4/troubleTicket/{ticketId}/ticketTask/{taskId}:
+    get:
+      tags: [Ticket Tasks]
+      summary: Get ticket task by ID
+      operationId: getTicketTask
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ticket task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTask'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Ticket Tasks]
+      summary: Update ticket task
+      operationId: updateTicketTask
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketTaskUpdate'
+      responses:
+        '200':
+          description: Ticket task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketTask'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Ticket Tasks]
+      summary: Delete ticket task
+      operationId: deleteTicketTask
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Ticket task deleted successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /troubleTicket/v4/troubleTicket/{id}/attachment:
+    post:
+      tags: [Attachments]
+      summary: Add attachment to ticket
+      operationId: addAttachment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Attachment added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    TroubleTicket:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the trouble ticket
+        href:
+          type: string
+          description: Reference URL to the trouble ticket
+        externalId:
+          type: string
+          description: External identifier from source system
+        status:
+          type: string
+          enum: [CREATED, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED]
+        statusChangeReason:
+          type: string
+        statusChangeDate:
+          type: string
+          format: date-time
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        ticketType:
+          type: string
+          enum: [SERVICE_OUTAGE, PERFORMANCE_DEGRADATION, BILLING_ISSUE, INSTALLATION_PROBLEM, NETWORK_ISSUE, GENERAL_INQUIRY]
+        description:
+          type: string
+        name:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+        resolutionDate:
+          type: string
+          format: date-time
+        closeDate:
+          type: string
+          format: date-time
+        expectedResolutionDate:
+          type: string
+          format: date-time
+        source:
+          type: string
+          description: Origin of the ticket (CRM, Self-Service, Phone, Email)
+        customerAffected:
+          type: boolean
+        firstTimeResolution:
+          type: boolean
+        category:
+          type: string
+        subCategory:
+          type: string
+        serviceCategory:
+          type: string
+        rootCause:
+          type: string
+        workaround:
+          type: string
+        resolution:
+          type: string
+        resolutionCode:
+          type: string
+        ticketTask:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketTask'
+        relatedEntity:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedEntity'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        relatedPlace:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+        relatedServiceOrder:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceOrderRef'
+        attachment:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        SLA:
+          $ref: '#/components/schemas/SLARef'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+      required:
+        - id
+        - href
+        - status
+
+    TroubleTicketCreate:
+      type: object
+      properties:
+        externalId:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        ticketType:
+          type: string
+          enum: [SERVICE_OUTAGE, PERFORMANCE_DEGRADATION, BILLING_ISSUE, INSTALLATION_PROBLEM, NETWORK_ISSUE, GENERAL_INQUIRY]
+        description:
+          type: string
+        name:
+          type: string
+        expectedResolutionDate:
+          type: string
+          format: date-time
+        source:
+          type: string
+        customerAffected:
+          type: boolean
+          default: false
+        category:
+          type: string
+        subCategory:
+          type: string
+        serviceCategory:
+          type: string
+        ticketTask:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketTaskCreate'
+        relatedEntity:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedEntity'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        relatedPlace:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPlaceRefOrValue'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        channel:
+          $ref: '#/components/schemas/Channel'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    TroubleTicketUpdate:
+      type: object
+      properties:
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        severity:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        description:
+          type: string
+        expectedResolutionDate:
+          type: string
+          format: date-time
+        category:
+          type: string
+        subCategory:
+          type: string
+        serviceCategory:
+          type: string
+        workaround:
+          type: string
+        resolution:
+          type: string
+        resolutionCode:
+          type: string
+        firstTimeResolution:
+          type: boolean
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+
+    TroubleTicketList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TroubleTicket'
+
+    TicketTask:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [CREATED, IN_PROGRESS, COMPLETED, CANCELLED]
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        taskType:
+          type: string
+        creationDate:
+          type: string
+          format: date-time
+        startDate:
+          type: string
+          format: date-time
+        completionDate:
+          type: string
+          format: date-time
+        estimatedCompletionDate:
+          type: string
+          format: date-time
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+        required:
+          type: boolean
+        nextTask:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketTaskRef'
+        ticketTaskRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketTaskRelationship'
+        relatedEntity:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedEntity'
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        attachment:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    TicketTaskCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+          default: MEDIUM
+        taskType:
+          type: string
+        estimatedCompletionDate:
+          type: string
+          format: date-time
+        required:
+          type: boolean
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    TicketTaskUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [CREATED, IN_PROGRESS, COMPLETED, CANCELLED]
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, MEDIUM, LOW]
+        description:
+          type: string
+        completionDate:
+          type: string
+          format: date-time
+        percentComplete:
+          type: integer
+          minimum: 0
+          maximum: 100
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    TicketTaskList:
+      type: object
+      properties:
+        totalCount:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketTask'
+
+    TicketTaskRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        _baseType:
+          type: string
+        _schemaLocation:
+          type: string
+        _type:
+          type: string
+
+    TicketTaskRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        relationshipType:
+          type: string
+        task:
+          $ref: '#/components/schemas/TicketTaskRef'
+
+    RelatedEntity:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        entityType:
+          type: string
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    RelatedPlaceRefOrValue:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    ServiceOrderRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        attachmentType:
+          type: string
+        content:
+          type: string
+        description:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+        sizeUnit:
+          type: string
+        url:
+          type: string
+        validFor:
+          $ref: '#/components/schemas/TimePeriod'
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    Channel:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    SLARef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        name:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+
+    StatusChange:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [CREATED, ASSIGNED, IN_PROGRESS, RESOLVED, CLOSED]
+        reason:
+          type: string
+        changeDate:
+          type: string
+          format: date-time
+
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: Conflict - resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

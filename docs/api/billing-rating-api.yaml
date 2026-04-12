@@ -1,0 +1,810 @@
+openapi: 3.0.3
+info:
+  title: Billing & Rating API
+  description: |
+    Billing and Rating API for Yemen PTC.
+    Supports real-time charging, invoice management, balance operations.
+    Handles 1.4M+ subscribers with <100ms rating latency.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+
+tags:
+  - name: Billing Accounts
+    description: Billing account management
+  - name: Invoices
+    description: Invoice generation and management
+  - name: Payments
+    description: Payment processing
+  - name: Rating
+    description: Usage rating
+  - name: Recharge
+    description: Account recharge
+  - name: Collections
+    description: Collections and dunning
+
+paths:
+  /billing/accounts/{accountId}:
+    get:
+      tags: [Billing Accounts]
+      summary: Get billing account
+      operationId: getBillingAccount
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Billing account retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingAccount"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /billing/accounts/{accountId}/balance:
+    get:
+      tags: [Billing Accounts]
+      summary: Get account balance
+      operationId: getAccountBalance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Balance retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalance"
+
+  /billing/accounts/{accountId}/balance/adjust:
+    post:
+      tags: [Billing Accounts]
+      summary: Adjust account balance
+      operationId: adjustBalance
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BalanceAdjustmentRequest"
+      responses:
+        "200":
+          description: Balance adjusted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceAdjustmentResult"
+
+  /billing/recharge:
+    post:
+      tags: [Recharge]
+      summary: Recharge account
+      operationId: rechargeAccount
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RechargeRequest"
+      responses:
+        "200":
+          description: Recharge successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RechargeResult"
+
+  /billing/recharge/voucher:
+    post:
+      tags: [Recharge]
+      summary: Validate and redeem voucher
+      operationId: redeemVoucher
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VoucherRequest"
+      responses:
+        "200":
+          description: Voucher redeemed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RechargeResult"
+
+  /billing/rating/charge:
+    post:
+      tags: [Rating]
+      summary: Rate usage event
+      operationId: rateUsageEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsageEvent"
+      responses:
+        "200":
+          description: Event rated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RatedEvent"
+
+  /billing/rating/batch:
+    post:
+      tags: [Rating]
+      summary: Batch rate usage events
+      operationId: batchRateEvents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchRatingRequest"
+      responses:
+        "200":
+          description: Batch rated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchRatingResult"
+
+  /billing/invoices:
+    get:
+      tags: [Invoices]
+      summary: List invoices
+      operationId: listInvoices
+      parameters:
+        - name: accountId
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DRAFT, FINALIZED, PAID, OVERDUE, CANCELLED]
+        - name: billingCycle
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Invoices retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceList"
+
+  /billing/invoices/{invoiceId}:
+    get:
+      tags: [Invoices]
+      summary: Get invoice
+      operationId: getInvoice
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Invoice not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /billing/invoices/{invoiceId}/pdf:
+    get:
+      tags: [Invoices]
+      summary: Download invoice PDF
+      operationId: downloadInvoicePdf
+      parameters:
+        - name: invoiceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  /billing/invoices/generate:
+    post:
+      tags: [Invoices]
+      summary: Generate invoice
+      operationId: generateInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceGenerationRequest"
+      responses:
+        "200":
+          description: Invoice generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /billing/payments:
+    post:
+      tags: [Payments]
+      summary: Process payment
+      operationId: processPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentRequest"
+      responses:
+        "200":
+          description: Payment processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentResult"
+
+  /billing/payments/{paymentId}:
+    get:
+      tags: [Payments]
+      summary: Get payment
+      operationId: getPayment
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /billing/collections/accounts/{accountId}/dunning:
+    get:
+      tags: [Collections]
+      summary: Get dunning status
+      operationId: getDunningStatus
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dunning status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningStatus"
+
+  /billing/collections/accounts/{accountId}/dunning/action:
+    post:
+      tags: [Collections]
+      summary: Execute dunning action
+      operationId: executeDunningAction
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DunningActionRequest"
+      responses:
+        "200":
+          description: Dunning action executed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DunningActionResult"
+
+components:
+  schemas:
+    BillingAccount:
+      type: object
+      properties:
+        id:
+          type: string
+        accountNumber:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, CLOSED]
+        billingCycle:
+          type: string
+        paymentMethod:
+          type: string
+        creditLimit:
+          type: number
+        currentBalance:
+          type: number
+        overdueAmount:
+          type: number
+        currency:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AccountBalance:
+      type: object
+      properties:
+        accountId:
+          type: string
+        mainBalance:
+          type: number
+        bonusBalance:
+          type: number
+        dataQuotaGB:
+          type: number
+        voiceMinutes:
+          type: integer
+        smsCount:
+          type: integer
+        validityEndDate:
+          type: string
+          format: date-time
+        currency:
+          type: string
+        lastUpdated:
+          type: string
+          format: date-time
+
+    BalanceAdjustmentRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        adjustmentType:
+          type: string
+          enum: [CREDIT, DEBIT]
+        reason:
+          type: string
+        referenceId:
+          type: string
+      required:
+        - amount
+        - adjustmentType
+        - reason
+
+    BalanceAdjustmentResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        newBalance:
+          type: number
+        message:
+          type: string
+
+    RechargeRequest:
+      type: object
+      properties:
+        accountId:
+          type: string
+        msisdn:
+          type: string
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+          enum: [CASH, CARD, BANK_TRANSFER, MOBILE_MONEY]
+        referenceId:
+          type: string
+      required:
+        - accountId
+        - amount
+        - paymentMethod
+
+    RechargeResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        transactionId:
+          type: string
+        previousBalance:
+          type: number
+        newBalance:
+          type: number
+        validityExtension:
+          type: string
+        bonusAmount:
+          type: number
+        message:
+          type: string
+
+    VoucherRequest:
+      type: object
+      properties:
+        msisdn:
+          type: string
+        voucherCode:
+          type: string
+      required:
+        - msisdn
+        - voucherCode
+
+    UsageEvent:
+      type: object
+      properties:
+        eventId:
+          type: string
+        subscriptionId:
+          type: string
+        serviceType:
+          type: string
+          enum: [VOICE, DATA, SMS, VAS]
+        eventType:
+          type: string
+        callingNumber:
+          type: string
+        calledNumber:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        dataVolume:
+          type: number
+        unitOfMeasure:
+          type: string
+          enum: [SECONDS, BYTES, COUNT]
+        location:
+          type: string
+        ratingGroup:
+          type: integer
+      required:
+        - subscriptionId
+        - serviceType
+        - eventType
+
+    RatedEvent:
+      type: object
+      properties:
+        eventId:
+          type: string
+        subscriptionId:
+          type: string
+        serviceType:
+          type: string
+        chargeAmount:
+          type: number
+        currency:
+          type: string
+        ratedUnits:
+          type: number
+        ratingResult:
+          type: string
+          enum: [RATED, NOT_RATED, ERROR, DEDUCTED_FROM_BUNDLE]
+        bundleDeduction:
+          $ref: "#/components/schemas/BundleDeduction"
+        ratedAt:
+          type: string
+          format: date-time
+
+    BundleDeduction:
+      type: object
+      properties:
+        bundleName:
+          type: string
+        unitsDeducted:
+          type: number
+        remainingUnits:
+          type: number
+
+    BatchRatingRequest:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/UsageEvent"
+      required:
+        - events
+
+    BatchRatingResult:
+      type: object
+      properties:
+        totalEvents:
+          type: integer
+        successfulEvents:
+          type: integer
+        failedEvents:
+          type: integer
+        totalChargeAmount:
+          type: number
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatedEvent"
+
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: string
+        invoiceNumber:
+          type: string
+        accountId:
+          type: string
+        billingCycle:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, FINALIZED, PAID, OVERDUE, CANCELLED]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceItem"
+        subtotalAmount:
+          type: number
+        discountAmount:
+          type: number
+        taxAmount:
+          type: number
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        issueDate:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date-time
+        paidDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    InvoiceItem:
+      type: object
+      properties:
+        id:
+          type: string
+        itemType:
+          type: string
+          enum: [RECURRING, USAGE, ONE_TIME, ADJUSTMENT, DISCOUNT]
+        description:
+          type: string
+        quantity:
+          type: number
+        unitPrice:
+          type: number
+        amount:
+          type: number
+        taxAmount:
+          type: number
+        subscriptionId:
+          type: string
+
+    InvoiceList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    InvoiceGenerationRequest:
+      type: object
+      properties:
+        accountId:
+          type: string
+        billingCycle:
+          type: string
+      required:
+        - accountId
+        - billingCycle
+
+    PaymentRequest:
+      type: object
+      properties:
+        accountId:
+          type: string
+        invoiceId:
+          type: string
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+          enum: [CASH, CARD, BANK_TRANSFER, CHEQUE, MOBILE_MONEY]
+        referenceId:
+          type: string
+      required:
+        - accountId
+        - amount
+        - paymentMethod
+
+    PaymentResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        paymentId:
+          type: string
+        transactionId:
+          type: string
+        amount:
+          type: number
+        message:
+          type: string
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+        accountId:
+          type: string
+        invoiceId:
+          type: string
+        amount:
+          type: number
+        paymentMethod:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED, REFUNDED]
+        referenceId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    DunningStatus:
+      type: object
+      properties:
+        accountId:
+          type: string
+        currentStage:
+          type: integer
+        stageName:
+          type: string
+        daysPastDue:
+          type: integer
+        overdueAmount:
+          type: number
+        lastActionDate:
+          type: string
+          format: date-time
+        nextActionDate:
+          type: string
+          format: date-time
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DunningAction"
+
+    DunningAction:
+      type: object
+      properties:
+        stage:
+          type: integer
+        actionType:
+          type: string
+        actionDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+        result:
+          type: string
+
+    DunningActionRequest:
+      type: object
+      properties:
+        actionType:
+          type: string
+          enum: [SEND_REMINDER, RESTRICT_SERVICE, SUSPEND_SERVICE, TERMINATE]
+        reason:
+          type: string
+      required:
+        - actionType
+        - reason
+
+    DunningActionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        actionType:
+          type: string
+        message:
+          type: string
+        nextStage:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "citus-postgresql.fullname" . }}-worker
+  labels:
+    app.kubernetes.io/name: {{ include "citus-postgresql.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: worker
+spec:
+  serviceName: {{ include "citus-postgresql.fullname" . }}-worker
+  replicas: {{ .Values.workers.count }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "citus-postgresql.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "citus-postgresql.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: worker
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - worker
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: worker
+          image: "citusdata/citus:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          ports:
+            - containerPort: 5432
+              name: postgresql
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.global.postgresql.username }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.postgresql.existingSecret | default (printf "%s-credentials" (include "citus-postgresql.fullname" .)) }}
+                  key: password
+            - name: POSTGRES_DB
+              value: {{ .Values.global.postgresql.database }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              memory: {{ .Values.workers.resources.requests.memory }}
+              cpu: {{ .Values.workers.resources.requests.cpu }}
+            limits:
+              memory: {{ .Values.workers.resources.limits.memory }}
+              cpu: {{ .Values.workers.resources.limits.cpu }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.global.postgresql.username }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.global.postgresql.username }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.workers.persistence.size }}

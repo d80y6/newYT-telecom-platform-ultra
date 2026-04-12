@@ -1,0 +1,475 @@
+# ============================================================================
+# YEMEN PTC BSS/OSS PLATFORM - DOCKER COMPOSE
+# Local Development Environment
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ============ INFRASTRUCTURE SERVICES ============
+
+  # PostgreSQL Database
+  postgresql:
+    image: postgres:15-alpine
+    container_name: bss-postgresql
+    environment:
+      POSTGRES_DB: bss_oss
+      POSTGRES_USER: bss_admin
+      POSTGRES_PASSWORD: bss_password
+      TZ: Asia/Aden
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bss_admin -d bss_oss"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bss-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: bss-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bss-network
+
+  # Apache Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: bss-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
+    networks:
+      - bss-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: bss-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      KAFKA_MAX_MESSAGE_BYTES: 10485760
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - bss-network
+
+  # Schema Registry
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    container_name: bss-schema-registry
+    depends_on:
+      kafka:
+        condition: service_started
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "8081:8081"
+    networks:
+      - bss-network
+
+  # Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: bss-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - bss-network
+
+  # Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: bss-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - bss-network
+
+  # ============ MONITORING SERVICES ============
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: bss-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=15d'
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - bss-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: bss-grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - bss-network
+
+  # ============ BSS/OSS CORE SERVICES ============
+
+  # API Gateway
+  api-gateway:
+    image: kong:latest
+    container_name: bss-api-gateway
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      KONG_LOG_LEVEL: info
+    ports:
+      - "8000:8000"  # Proxy
+      - "8001:8001"  # Admin API
+      - "8444:8444"  # Admin SSL
+    volumes:
+      - ./gateway/kong.yml:/etc/kong/kong.yml
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - bss-network
+
+  # BSS Core Service
+  bss-core:
+    image: bss-core:latest
+    container_name: bss-core
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/bss_oss
+      SPRING_DATASOURCE_USERNAME: bss_admin
+      SPRING_DATASOURCE_PASSWORD: bss_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_REDIS_HOST: redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      ELASTICSEARCH_ENABLED: "false"
+      NEO4J_ENABLED: "false"
+      MONGODB_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: create
+      JAVA_OPTS: "-Xms512m -Xmx1g"
+      OTEL_EXPORTER_OTLP_TRACES_ENABLED: "false"
+      OTEL_EXPORTER_OTLP_METRICS_ENABLED: "false"
+      OTEL_EXPORTER_OTLP_LOGS_ENABLED: "false"
+      OTEL_METRICS_EXPORTER: "none"
+      OTEL_LOGS_EXPORTER: "none"
+      OTEL_TRACES_EXPORTER: "none"
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./logs/bss-core:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - bss-network
+
+  # Customer Service
+  customer-service:
+    build:
+      context: ../
+      dockerfile: deployment/Dockerfile
+      args:
+        SERVICE_NAME: customer-service
+    container_name: customer-service
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/bss_oss
+      SPRING_DATASOURCE_USERNAME: bss_admin
+      SPRING_DATASOURCE_PASSWORD: bss_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVICE_PORT: 8081
+    ports:
+      - "8085:8081"
+    networks:
+      - bss-network
+
+  # Billing Service
+  billing-service:
+    build:
+      context: ../
+      dockerfile: deployment/Dockerfile
+      args:
+        SERVICE_NAME: billing-service
+    container_name: billing-service
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/bss_oss
+      SPRING_DATASOURCE_USERNAME: bss_admin
+      SPRING_DATASOURCE_PASSWORD: bss_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_REDIS_HOST: redis
+      SERVICE_PORT: 8082
+    ports:
+      - "8082:8082"
+    networks:
+      - bss-network
+
+  # Order Service
+  order-service:
+    build:
+      context: ../
+      dockerfile: deployment/Dockerfile
+      args:
+        SERVICE_NAME: order-service
+    container_name: order-service
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgresql:5432/bss_oss
+      SPRING_DATASOURCE_USERNAME: bss_admin
+      SPRING_DATASOURCE_PASSWORD: bss_password
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SERVICE_PORT: 8083
+    ports:
+      - "8083:8083"
+    networks:
+      - bss-network
+
+  # Adapter Registry
+  adapter-registry:
+    build:
+      context: ../
+      dockerfile: deployment/Dockerfile
+      args:
+        SERVICE_NAME: adapter-registry
+    container_name: adapter-registry
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: development
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_REDIS_HOST: redis
+      SERVICE_PORT: 8084
+    ports:
+      - "8084:8084"
+    networks:
+      - bss-network
+
+  # ============ FRONTEND APPLICATIONS ============
+
+  # Customer Portal - Static nginx (requires pre-built files)
+  customer-portal:
+    image: nginx:alpine
+    container_name: customer-portal
+    volumes:
+      - ./portal/build:/usr/share/nginx/html:ro
+    ports:
+      - "3001:80"
+    networks:
+      - bss-network
+
+  # Admin Dashboard - Static nginx (requires pre-built files)
+  admin-dashboard:
+    image: nginx:alpine
+    container_name: admin-dashboard
+    volumes:
+      - ./admin/build:/usr/share/nginx/html:ro
+    ports:
+      - "3002:80"
+    networks:
+      - bss-network
+
+  # Operator Portal - Static nginx (requires pre-built files)
+  operator-portal:
+    image: nginx:alpine
+    container_name: operator-portal
+    volumes:
+      - ./operator/build:/usr/share/nginx/html:ro
+    ports:
+      - "3003:80"
+    networks:
+      - bss-network
+
+  # Analytics Dashboard - Static nginx (requires pre-built files)
+  analytics-dashboard:
+    image: nginx:alpine
+    container_name: analytics-dashboard
+    volumes:
+      - ./analytics/build:/usr/share/nginx/html:ro
+    ports:
+      - "3004:80"
+    networks:
+      - bss-network
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: bss-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: bss_oss
+      MONGO_INITDB_ROOT_USERNAME: bss_admin
+      MONGO_INITDB_ROOT_PASSWORD: bss_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bss-network
+
+  # Neo4j
+  neo4j:
+    image: neo4j:5.14-community
+    container_name: bss-neo4j
+    environment:
+      NEO4J_AUTH: bss_admin/bss_password
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1g
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+      NEO4J_dbms_security_procedures_allowlist: apoc.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "bss_admin", "-p", "bss_password", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bss-network
+
+# ============ VOLUMES ============
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_log:
+    driver: local
+  kafka_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# ============ NETWORKS ============
+
+networks:
+  bss-network:
+    driver: bridge
+    name: bss-network

@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bss-core
+  namespace: bss-oss
+  labels:
+    app: bss-core
+    app.kubernetes.io/part-of: yemenptc-bss
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: bss-core
+  template:
+    metadata:
+      labels:
+        app: bss-core
+    spec:
+      containers:
+        - name: bss-core
+          image: yemenptc/bss-core:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
+            - name: SPRING_DATASOURCE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: bss-secrets
+                  key: database-url
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka-cluster-kafka-bootstrap:9092"
+            - name: SPRING_DATA_REDIS_HOST
+              value: "redis-cluster"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bss-core
+  namespace: bss-oss
+spec:
+  selector:
+    app: bss-core
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bss-core-hpa
+  namespace: bss-oss
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bss-core
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

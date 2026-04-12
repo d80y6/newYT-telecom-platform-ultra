@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "PartyEvent",
+  "namespace": "com.yemenptc.bss.events.party",
+  "fields": [
+    {"name": "eventId", "type": "string", "doc": "Unique event identifier (UUID)"},
+    {"name": "eventType", "type": "string", "doc": "com.yemenptc.party.created|updated|deleted"},
+    {"name": "partyId", "type": "string", "doc": "TMF632 Party UUID"},
+    {"name": "partyType", "type": {"type": "enum", "name": "PartyType", "symbols": ["INDIVIDUAL", "ORGANIZATION"]}},
+    {"name": "name", "type": "string"},
+    {"name": "status", "type": {"type": "enum", "name": "PartyStatus", "symbols": ["ACTIVE", "INACTIVE", "SUSPENDED", "TERMINATED"]}},
+    {"name": "nationalId", "type": ["null", "string"], "default": null},
+    {"name": "primaryPhone", "type": ["null", "string"], "default": null},
+    {"name": "email", "type": ["null", "string"], "default": null},
+    {"name": "timestamp", "type": "long"},
+    {"name": "correlationId", "type": ["null", "string"], "default": null, "doc": "Saga correlation ID"},
+    {"name": "source", "type": "string", "default": "tmf632-party-mgmt", "doc": "Producing service"}
+  ]
+}

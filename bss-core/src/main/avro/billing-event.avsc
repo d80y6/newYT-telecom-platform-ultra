@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "BillingEvent",
+  "namespace": "com.yemenptc.bss.events.billing",
+  "fields": [
+    {"name": "eventId", "type": "string"},
+    {"name": "eventType", "type": "string", "doc": "com.yemenptc.billing.invoice.created|finalized|paid"},
+    {"name": "invoiceId", "type": "string"},
+    {"name": "accountId", "type": "string"},
+    {"name": "invoiceNumber", "type": "string"},
+    {"name": "totalAmount", "type": "double"},
+    {"name": "currency", "type": "string", "default": "YER"},
+    {"name": "status", "type": {"type": "enum", "name": "InvoiceStatus", "symbols": ["DRAFT", "FINALIZED", "PAID", "OVERDUE", "CANCELLED"]}},
+    {"name": "issueDate", "type": "string", "doc": "ISO date"},
+    {"name": "dueDate", "type": "string", "doc": "ISO date"},
+    {"name": "timestamp", "type": "long"},
+    {"name": "correlationId", "type": ["null", "string"], "default": null},
+    {"name": "source", "type": "string", "default": "tmf657-billing-mgmt"}
+  ]
+}

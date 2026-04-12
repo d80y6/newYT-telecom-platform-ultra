@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "citus-postgresql.fullname" . }}-coordinator
+  labels:
+    {{- include "citus-postgresql.labels" . | nindent 4 }}
+    app.kubernetes.io/component: coordinator
+spec:
+  serviceName: {{ include "citus-postgresql.fullname" . }}-coordinator
+  replicas: {{ .Values.coordinator.replicas }}
+  selector:
+    matchLabels:
+      {{- include "citus-postgresql.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: coordinator
+  template:
+    metadata:
+      labels:
+        {{- include "citus-postgresql.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: coordinator
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- if .Values.coordinator.affinity }}
+      affinity:
+        {{- toYaml .Values.coordinator.affinity | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: coordinator
+          image: "citusdata/citus:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.global.postgresql.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.postgresql.existingSecret | default (printf "%s-credentials" (include "citus-postgresql.fullname" .)) }}
+                  key: password
+            - name: POSTGRES_DB
+              value: {{ .Values.global.postgresql.database | quote }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            {{- toYaml .Values.coordinator.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: config
+              mountPath: /docker-entrypoint-initdb.d
+            - name: citus-config
+              mountPath: /etc/postgresql/postgresql.conf
+              subPath: postgresql.conf
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.global.postgresql.username }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - {{ .Values.global.postgresql.username }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "citus-postgresql.fullname" . }}-init-scripts
+        - name: citus-config
+          configMap:
+            name: {{ include "citus-postgresql.fullname" . }}-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          {{- toYaml .Values.coordinator.persistence.accessModes | nindent 10 }}
+        resources:
+          requests:
+            storage: {{ .Values.coordinator.persistence.size }}
+        {{- if .Values.coordinator.persistence.storageClass }}
+        storageClassName: {{ .Values.coordinator.persistence.storageClass }}
+        {{- else if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass }}
+        {{- end }}

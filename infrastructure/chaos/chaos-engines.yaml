@@ -1,0 +1,88 @@
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: bss-core-chaos
+  namespace: bss-oss
+spec:
+  engineState: active
+  annotationCheck: false
+  appinfo:
+    appns: bss-oss
+    applabel: app=bss-core
+    appkind: deployment
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          env:
+            - name: TOTAL_CHAOS_DURATION
+              value: '60'
+            - name: CHAOS_INTERVAL
+              value: '10'
+            - name: FORCE
+              value: 'false'
+        probe:
+          - name: api-health-check
+            type: httpProbe
+            mode: Continuous
+            httpProbe/inputs:
+              url: http://bss-core:8080/actuator/health
+              method:
+                get:
+                  criteria: ==200
+                  responseTimeout: 5000
+            runProperties:
+              probeTimeout: 10
+              interval: 5
+              retry: 3
+    - name: network-latency
+      spec:
+        components:
+          env:
+            - name: NETWORK_INTERFACE
+              value: eth0
+            - name: NETWORK_LATENCY
+              value: '300'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'
+    - name: pod-cpu-hog
+      spec:
+        components:
+          env:
+            - name: CPU_CORES
+              value: '1'
+            - name: TOTAL_CHAOS_DURATION
+              value: '60'
+---
+apiVersion: litmuschaos.io/v1alpha1
+kind: ChaosEngine
+metadata:
+  name: charging-engine-chaos
+  namespace: bss-oss
+spec:
+  engineState: active
+  appinfo:
+    appns: bss-oss
+    applabel: app=charging-engine
+    appkind: deployment
+  chaosServiceAccount: litmus-admin
+  experiments:
+    - name: pod-delete
+      spec:
+        components:
+          env:
+            - name: TOTAL_CHAOS_DURATION
+              value: '60'
+            - name: CHAOS_INTERVAL
+              value: '15'
+    - name: network-latency
+      spec:
+        components:
+          env:
+            - name: NETWORK_INTERFACE
+              value: eth0
+            - name: NETWORK_LATENCY
+              value: '100'
+            - name: TOTAL_CHAOS_DURATION
+              value: '120'

@@ -1,0 +1,10 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------------< com.yemenptc:bss-core >------------------------
+[INFO] Building BSS Core Service 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:3.2.0:run (default-cli) > test-compile @ bss-core >>>
+[INFO] 
+[INFO] --- avro-maven-plugin:1.11.3:schema (default) @ bss-core ---

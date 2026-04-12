@@ -1,0 +1,65 @@
+{{- if .Values.services.bss-core.autoscaling.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "bss-core.fullname" . }}-bss-core-keda
+  labels:
+    {{- include "bss-core.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "bss-core.fullname" . }}-bss-core
+  pollingInterval: 15
+  cooldownPeriod: 300
+  minReplicaCount: {{ .Values.services.bss-core.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.services.bss-core.autoscaling.maxReplicas }}
+  advanced:
+    restoreToOriginalReplicaCount: false
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 10
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 60
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 60
+  triggers:
+    {{- range .Values.services.bss-core.autoscaling.keda.triggers }}
+    - type: {{ .type }}
+      metadata:
+        {{- toYaml .metadata | nindent 8 }}
+    {{- end }}
+---
+{{- if .Values.services.charging-engine.autoscaling.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "bss-core.fullname" . }}-charging-engine-keda
+  labels:
+    {{- include "bss-core.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "bss-core.fullname" . }}-charging-engine
+  pollingInterval: 10
+  cooldownPeriod: 60
+  minReplicaCount: {{ .Values.services.charging-engine.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.services.charging-engine.autoscaling.maxReplicas }}
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: {{ .Values.services.charging-engine.autoscaling.keda.triggers[0].metadata.bootstrapServers }}
+        consumerGroup: {{ .Values.services.charging-engine.autoscaling.keda.triggers[0].metadata.consumerGroup }}
+        topic: {{ .Values.services.charging-engine.autoscaling.keda.triggers[0].metadata.topic }}
+        lagThreshold: {{ .Values.services.charging-engine.autoscaling.keda.triggers[0].metadata.lagThreshold }}
+---
+{{- end }}
+{{- end }}

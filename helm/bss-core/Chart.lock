@@ -1,0 +1,12 @@
+dependencies:
+- name: citus-postgresql
+  repository: file://../citus-postgresql
+  version: 1.0.0
+- name: kafka-kraft
+  repository: file://../kafka-kraft
+  version: 1.0.0
+- name: monitoring
+  repository: file://../monitoring
+  version: 1.0.0
+digest: sha256:44bc04faf87afdc8d3f4d627fdd67b24e7f0973b0840b5cc63bcf9d088dad491
+generated: "2026-03-30T22:13:08.870130414+03:00"

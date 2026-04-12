@@ -1,0 +1,19 @@
+apiVersion: v2
+name: citus-postgresql
+description: Citus PostgreSQL sharded cluster for BSS/OSS platform
+type: application
+version: 1.0.0
+appVersion: "15.5"
+keywords:
+  - postgresql
+  - citus
+  - sharding
+  - database
+maintainers:
+  - name: Yemen PTC BSS Team
+    email: bss-team@yemenptc.com
+dependencies:
+  - name: common
+    version: 2.x.x
+    repository: https://charts.bitnami.com/bitnami
+    condition: common.enabled

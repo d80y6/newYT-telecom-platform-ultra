@@ -1,0 +1,174 @@
+#!/bin/bash
+# Production CDR Mediation Pipeline Implementation
+# This script orchestrates the complete CDR processing workflow
+
+# Create necessary directories
+mkdir -p /opt/newYT-telecom-platform-ultra/cdrmspipeline/{parser,normalizer,enricher,kafka,support}
+
+# Implement Parser Component
+cat > /opt/newYT-telecom-platform-ultra/cdrmspipeline/parser/cdr_parser.py << 'EOF'
+#!/usr/bin/env python3
+"""
+CDR Parser Module - Handles ingestion and parsing of raw CDR events
+Supports multiple telecom usage event formats with error resilience
+"""
+
+import logging
+import re
+from typing import Dict, List, Optional
+from dataclasses import dataclass
+
+logger = logging.getLogger('CDRParser')
+
+@dataclass
+class ParsedCDR:
+    """Standardized CDR structure after parsing"""
+    event_id: str
+    timestamp: str
+    user_id: str
+    service_type: str
+    raw_data: Dict
+    parsing_status: str = "success"
+
+class CDRParser:
+    """Main CDR parsing class with format detection and processing"""
+    
+    # Regex patterns for format detection
+    PATTERNS = {
+        'voice': re.compile(r'^(?P<type>voice)[^<]*<duration>(?P<duration>\d+)'),
+        'sms': re.compile(r'^(?P<type>sms)[^<]*<msg_len>(?P<msg_len>\d+)'),
+        'data': re.compile(r'^(?P<type>data)[^<]*<bytes>(?P<bytes>\d+)'),
+        'roaming': re.compile(r'^(?P<type>roaming)[^<]*<roam_net>(?P<roam_net>\w+)')
+    }
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.support = config.get('support_functions', [])
+    
+    def detect_format(self, raw_content: str) -> Optional[str]:
+        """Detect CDR event format based on pattern matching"""
+        for format_type, pattern in self.PATTERNS.items():
+            if pattern.search(raw_content):
+                return format_type
+        return None
+    
+    def parse_voice_cdr(self, raw_content: str) -> ParsedCDR:
+        """Parse voice call detail records"""
+        match = self.PATTERNS['voice'].search(raw_content)
+        if not match:
+            return ParsedCDR(event_id="", timestamp="", user_id="", 
+                             service_type="voice", raw_data={}, 
+                             parsing_status="failed_parse")
+        
+        return ParsedCDR(
+            event_id=match.group('event_id') or f"CDR-{hash(raw_content)}",
+            timestamp=match.group('timestamp') or "NOW",
+            user_id=match.group('caller_id') or "UNKNOWN",
+            service_type="voice",
+            raw_data={
+                'duration': match.group('duration'),
+                'caller_id': match.group('caller_id') or "UNKNOWN",
+                'callee_id': match.group('callee_id') or "UNKNOWN",
+                'call_type': match.group('call_type') or "OUTGOING"
+            },
+            parsing_status="success"
+        )
+    
+    def parse_sms_cdr(self, raw_content: str) -> ParsedCDR:
+        """Parse SMS detail records"""
+        match = self.PATTERNS['sms'].search(raw_content)
+        if not match:
+            return ParsedCDR(event_id="", timestamp="", user_id="", 
+                             service_type="sms", raw_data={}, 
+                             parsing_status="failed_parse")
+        
+        return ParsedCDR(
+            event_id=match.group('event_id') or f"CDR-{hash(raw_content)}",
+            timestamp=match.group('timestamp') or "NOW",
+            user_id=match.group('sender_id') or "UNKNOWN",
+            service_type="sms",
+            raw_data={
+                'message_length': match.group('msg_len'),
+                'recipients': match.group('recipients') or [],
+                'message_content_hash': match.group('content_hash') or "UNKNOWN"
+            },
+            parsing_status="success"
+        )
+    
+    def parse_data_cdr(self, raw_content: str) -> ParsedCDR:
+        """Parse data usage detail records"""
+        match = self.PATTERNS['data'].search(raw_content)
+        if not match:
+            return ParsedCDR(event_id="", timestamp="", user_id="", 
+                             service_type="data", raw_data={}, 
+                             parsing_status="failed_parse")
+        
+        return ParsedCDR(
+            event_id=match.group('event_id') or f"CDR-{hash(raw_content)}",
+            timestamp=match.group('timestamp') or "NOW",
+            user_id=match.group('user_id') or "UNKNOWN",
+            service_type="data",
+            raw_data={
+                'bytes_used': match.group('bytes'),
+                'plan_type': match.group('plan_type') or "DEFAULT",
+                'device_id': match.group('device_id') or "UNKNOWN"
+            },
+            parsing_status="success"
+        )
+    
+    def parse_roaming_cdr(self, raw_content: str) -> ParsedCDR:
+        """Parse roaming detail records"""
+        match = self.PATTERNS['roaming'].search(raw_content)
+        if not match:
+            return ParsedCDR(event_id="", timestamp="", user_id="", 
+                             service_type="roaming", raw_data={}, 
+                             parsing_status="failed_parse")
+        
+        return ParsedCDR(
+            event_id=match.group('event_id') or f"CDR-{hash(raw_content)}",
+            timestamp=match.group('timestamp') or "NOW",
+            user_id=match.group('user_id') or "UNKNOWN",
+            service_type="roaming",
+            raw_data={
+                'roaming_network': match.group('roam_net'),
+                'data_used': match.group('data_used'),
+                'roaming_type': match.group('roam_type') or "INTERNATIONAL"
+            },
+            parsing_status="success"
+        )
+    
+    def parse_cdr(self, raw_content: str) -> ParsedCDR:
+        """Main parsing method - dispatches to appropriate parser"""
+        try:
+            format_type = self.detect_format(raw_content)
+            if not format_type:
+                logger.warning(f"Unable to detect CDR format: {raw_content[:100]}...")
+                return ParsedCDR(event_id="", timestamp="", user_id="", 
+                                service_type="unknown", raw_data={}, 
+                                parsing_status="unsupported_format")
+            
+            parser_method = getattr(self, f'parse_{format_type}_cdr')
+            return parser_method(raw_content)
+            
+        except Exception as e:
+            logger.error(f"CDR parsing failed: {str(e)}", exc_info=True)
+            return ParsedCDR(event_id="", timestamp="", user_id="", 
+                            service_type="error", raw_data={}, 
+                            parsing_status=f"parse_error: {str(e)}")
+    
+    def process_batch(self, cdr_list: List[str]) -> List[ParsedCDR]:
+        """Process multiple CDR events in batch mode"""
+        parsed_cdrs = []
+        for cdr in cdr_list:
+            parsed_cdr = self.parse_cdr(cdr)
+            parsed_cdrs.append(parsed_cdr)
+            
+            # Trigger enrichment if parsing succeeds
+            if parsed_cdr.parsing_status == "success":
+                logger.debug(f"Successfully parsed CDR: {parsed_cdr.event_id}")
+                # In production, this would trigger enrichment pipeline
+                # enrichment_service.enrich_cdr(parsed_cdr)
+                
+            parsed_cdrs.append(parsed_cdr)
+        return parsed_cdrs
+EOF

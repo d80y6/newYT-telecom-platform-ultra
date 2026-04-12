@@ -1,0 +1,362 @@
+# ============================================================================
+# Monitoring Stack Configuration
+# ============================================================================
+
+global:
+  namespace: monitoring
+  storageClass: fast-ssd
+
+# ============================================================================
+# Prometheus Configuration
+# ============================================================================
+
+prometheus:
+  enabled: true
+  alertmanager:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 10Gi
+  server:
+    enabled: true
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: yemenptc-bss
+        replica: '{{.ExternalURL}}'
+    persistentVolume:
+      enabled: true
+      size: 500Gi
+      storageClass: fast-ssd
+    retention: "30d"
+    retentionSize: "450Gi"
+    resources:
+      requests:
+        memory: "4Gi"
+        cpu: "2000m"
+      limits:
+        memory: "8Gi"
+        cpu: "4000m"
+    # Additional scrape configs for BSS services
+    extraScrapeConfigs: |
+      - job_name: 'bss-services'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names:
+                - bss-oss
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: $1:$2
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+      
+      - job_name: 'citus-postgresql'
+        static_configs:
+          - targets: ['citus-postgresql-exporter:9187']
+        relabel_configs:
+          - source_labels: [__address__]
+            target_label: instance
+            replacement: 'citus-coordinator'
+      
+      - job_name: 'kafka-exporter'
+        static_configs:
+          - targets: ['kafka-exporter:9308']
+
+# ============================================================================
+# AlertManager Configuration
+# ============================================================================
+
+alertmanager:
+  enabled: true
+  config:
+    global:
+      smtp_smarthost: 'smtp.yemenptc.com:587'
+      smtp_from: 'alerts@yemenptc.com'
+      smtp_auth_username: 'alerts@yemenptc.com'
+      smtp_auth_password: ''
+      slack_api_url: ''
+      pagerduty_url: https://events.pagerduty.com/v2/enqueue
+    
+    templates:
+      - '/etc/alertmanager/*.tmpl'
+    
+    route:
+      receiver: 'default-receiver'
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+        - match:
+            severity: critical
+          receiver: 'pagerduty-critical'
+          continue: true
+        - match:
+            severity: warning
+          receiver: 'slack-warnings'
+          continue: true
+        - match:
+            alertname: ServiceDown
+          receiver: 'pagerduty-critical'
+          group_wait: 0s
+    
+    receivers:
+      - name: 'default-receiver'
+        email_configs:
+          - to: 'ops@yemenptc.com'
+            subject: 'BSS Alert: {{ .GroupLabels.alertname }}'
+            body: |
+              {{ range .Alerts }}
+              Alert: {{ .Annotations.summary }}
+              Description: {{ .Annotations.description }}
+              Instance: {{ .Labels.instance }}
+              Severity: {{ .Labels.severity }}
+              Time: {{ .StartsAt }}
+              {{ end }}
+      
+      - name: 'slack-warnings'
+        slack_configs:
+          - channel: '#bss-alerts'
+            title: 'BSS Warning Alert'
+            text: |
+              {{ range .Alerts }}
+              *Alert:* {{ .Annotations.summary }}
+              *Description:* {{ .Annotations.description }}
+              *Severity:* {{ .Labels.severity }}
+              {{ end }}
+            send_resolved: true
+      
+      - name: 'pagerduty-critical'
+        pagerduty_configs:
+          - service_key: '<PAGERDUTY_SERVICE_KEY>'
+            description: 'BSS Critical: {{ .GroupLabels.alertname }}'
+            severity: critical
+            class: bss-platform
+            group: production
+
+# ============================================================================
+# Grafana Configuration
+# ============================================================================
+
+grafana:
+  enabled: true
+  replicas: 2
+  admin:
+    existingSecret: grafana-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: fast-ssd
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.yemenptc.com
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.yemenptc.com
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server:9090
+          access: proxy
+          isDefault: true
+          editable: false
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+          access: proxy
+          editable: false
+        - name: Tempo
+          type: tempo
+          url: http://tempo:3100
+          access: proxy
+          editable: false
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+        - name: 'bss'
+          orgId: 1
+          folder: 'BSS Platform'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/bss
+  dashboardsConfigMaps:
+    default: "grafana-dashboards-default"
+    bss: "grafana-dashboards-bss"
+
+# ============================================================================
+# Alert Rules Configuration
+# ============================================================================
+
+alertRules:
+  enabled: true
+  additionalAlertRules:
+    # BSS Platform Specific Alerts
+    - name: bss-platform-alerts
+      rules:
+        # Service Availability
+        - alert: BSSServiceDown
+          expr: up{job=~"bss-.*"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "BSS Service {{ $labels.job }} is down"
+            description: "The {{ $labels.job }} service has been down for more than 1 minute."
+        
+        # High Error Rate
+        - alert: BSSHighErrorRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{job=~"bss-.*",status=~"5.."}[5m]))
+              /
+              sum(rate(http_server_requests_seconds_count{job=~"bss-.*"}[5m]))
+            ) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate in {{ $labels.job }}"
+            description: "Error rate is above 5% for the last 5 minutes."
+        
+        # Rating Engine Performance
+        - alert: RatingEngineSlow
+          expr: histogram_quantile(0.95, rate(rating_duration_seconds_bucket[5m])) > 0.1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Rating engine latency exceeded 100ms"
+            description: "95th percentile latency is {{ $value }}s"
+        
+        # Database Connection Pool
+        - alert: DBConnectionPoolHigh
+          expr: hikaricp_connections_active / hikaricp_connections_max > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "DB connection pool utilization high"
+            description: "Connection pool is {{ $value | humanizePercentage }} utilized."
+        
+        # Kafka Consumer Lag
+        - alert: KafkaConsumerLagHigh
+          expr: kafka_consumer_group_lag_sum > 10000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High Kafka consumer lag"
+            description: "Consumer group {{ $labels.group }} has {{ $value }} messages lag."
+        
+        # Citus Shard Imbalance
+        - alert: CitusShardImbalance
+          expr: |
+            (
+              max by (shardid) (citus_shard_size_bytes)
+              -
+              min by (shardid) (citus_shard_size_bytes)
+            ) / avg by (shardid) (citus_shard_size_bytes) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Citus shard imbalance detected"
+            description: "Shard sizes differ by more than 50%."
+        
+        # Billing Processing Failures
+        - alert: BillingProcessingFailures
+          expr: rate(billing_processing_failures_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High billing failure rate"
+            description: "More than 10 billing failures per minute."
+        
+        # Charging Engine Queue Depth
+        - alert: ChargingQueueBacklog
+          expr: charging_queue_depth > 10000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Charging queue backlog"
+            description: "Queue depth is {{ $value }} events."
+        
+        # Customer Data Sync Issues
+        - alert: CustomerSyncLag
+          expr: customer_sync_timestamp - time() > 300
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Customer data sync lag"
+            description: "Sync lag is {{ $value }} seconds."
+
+# ============================================================================
+# Node Exporter
+# ============================================================================
+
+nodeExporter:
+  enabled: true
+
+# ============================================================================
+# kube-state-metrics
+# ============================================================================
+
+kubeStateMetrics:
+  enabled: true
+
+# ============================================================================
+# Pushgateway
+# ============================================================================
+
+pushgateway:
+  enabled: false

@@ -1,0 +1,1610 @@
+openapi: 3.0.3
+info:
+  title: Order Management API
+  description: |
+    TMF622-compliant Order Management API for Yemen PTC.
+    Supports order lifecycle management for multi-play services (Fixed, Mobile, Internet, Enterprise).
+    Implements order decomposition: Commercial Order -> Service Order -> Resource Order.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Orders
+    description: Order lifecycle management
+  - name: Order Items
+    description: Order item management
+  - name: Order Search
+    description: Order search and filtering
+  - name: Order State
+    description: Order state transitions
+
+paths:
+  /orders:
+    get:
+      tags: [Orders]
+      summary: List all orders
+      operationId: listOrders
+      parameters:
+        - name: orderType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACQUISITION, MODIFICATION, TERMINATION, SUSPENSION, TRANSFER]
+          description: Filter by order type
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+          description: Filter by order state
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [URGENT, HIGH, NORMAL, LOW]
+          description: Filter by priority
+        - name: customerId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by customer ID
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by sales channel
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter orders from this date
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Filter orders until this date
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Sort field and direction (e.g., orderDate:desc)
+      responses:
+        '200':
+          description: Orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Orders]
+      summary: Create a new order
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCreate'
+      responses:
+        '201':
+          description: Order created successfully
+          headers:
+            Location:
+              schema:
+                type: string
+              description: URI of the created order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: Get order by ID
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Orders]
+      summary: Update order
+      operationId: updateOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderUpdate'
+      responses:
+        '200':
+          description: Order updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order state conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Orders]
+      summary: Cancel order
+      operationId: cancelOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reason
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Cancellation reason
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order cannot be cancelled in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/items:
+    get:
+      tags: [Order Items]
+      summary: Get order items
+      operationId: getOrderItems
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [COMMERCIAL, SERVICE, RESOURCE]
+          description: Filter by item decomposition level
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING]
+          description: Filter by item state
+      responses:
+        '200':
+          description: Order items retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderItemList'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Order Items]
+      summary: Add item to order
+      operationId: addOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderItemCreate'
+      responses:
+        '201':
+          description: Order item added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Cannot modify order in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/items/{itemId}:
+    get:
+      tags: [Order Items]
+      summary: Get order item by ID
+      operationId: getOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order item retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderItem'
+        '404':
+          description: Order or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags: [Order Items]
+      summary: Update order item
+      operationId: updateOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderItemUpdate'
+      responses:
+        '200':
+          description: Order item updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [Order Items]
+      summary: Remove item from order
+      operationId: removeOrderItem
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order item removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Cannot remove item in current order state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/state:
+    get:
+      tags: [Order State]
+      summary: Get order state and history
+      operationId: getOrderState
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order state retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderState'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags: [Order State]
+      summary: Transition order state
+      operationId: transitionOrderState
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateTransition'
+      responses:
+        '200':
+          description: State transition successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: State transition not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/validate:
+    post:
+      tags: [Orders]
+      summary: Validate order before processing
+      operationId: validateOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderValidationResult'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/process:
+    post:
+      tags: [Order State]
+      summary: Process order
+      operationId: processOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProcessOrderRequest'
+      responses:
+        '200':
+          description: Order processing initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order cannot be processed in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/{orderId}/complete:
+    post:
+      tags: [Order State]
+      summary: Complete order
+      operationId: completeOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Order cannot be completed in current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/search:
+    post:
+      tags: [Order Search]
+      summary: Search orders with complex criteria
+      operationId: searchOrders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderSearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderList'
+        '400':
+          description: Invalid search criteria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /orders/stats:
+    get:
+      tags: [Order Search]
+      summary: Get order statistics
+      operationId: getOrderStats
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: groupBy
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [orderType, state, channel, priority]
+          description: Group statistics by field
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderStats'
+
+components:
+  schemas:
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique order identifier
+        href:
+          type: string
+          description: Reference URI for the order
+        externalId:
+          type: string
+          description: External reference ID from originating system
+        orderType:
+          type: string
+          enum: [ACQUISITION, MODIFICATION, TERMINATION, SUSPENSION, TRANSFER]
+          description: Type of order
+        category:
+          type: string
+          description: Order category within type
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [URGENT, HIGH, NORMAL, LOW]
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+          description: Current order state
+        orderDate:
+          type: string
+          format: date-time
+          description: Date order was placed
+        completionDate:
+          type: string
+          format: date-time
+          description: Date order was completed
+        requestedStartDate:
+          type: string
+          format: date-time
+          description: Requested start date for order execution
+        requestedCompletionDate:
+          type: string
+          format: date-time
+          description: Requested completion date
+        expectedCompletionDate:
+          type: string
+          format: date-time
+          description: Expected completion date
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+          description: Order notes
+        orderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+          description: Items in the order
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+          description: Parties related to the order
+        channel:
+          $ref: '#/components/schemas/ChannelRef'
+          description: Sales channel
+        billingAccount:
+          $ref: '#/components/schemas/BillingAccountRef'
+          description: Billing account reference
+        payment:
+          $ref: '#/components/schemas/PaymentRef'
+          description: Payment information
+        stateHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChange'
+          description: State transition history
+        orderRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderRelationship'
+          description: Related orders (parent, child, etc.)
+        notificationContact:
+          type: string
+          description: Contact for notifications
+        notificationPreference:
+          type: array
+          items:
+            type: string
+            enum: [SMS, EMAIL, PUSH, IVR]
+          description: Notification preferences
+        baseType:
+          type: string
+          description: Base type identifier
+        schemaLocation:
+          type: string
+          description: Schema location URI
+        type:
+          type: string
+          description: Type discriminator
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required:
+        - id
+        - orderType
+        - state
+        - orderDate
+        - orderItem
+
+    OrderCreate:
+      type: object
+      properties:
+        externalId:
+          type: string
+          description: External reference ID
+        orderType:
+          type: string
+          enum: [ACQUISITION, MODIFICATION, TERMINATION, SUSPENSION, TRANSFER]
+        category:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [URGENT, HIGH, NORMAL, LOW]
+          default: NORMAL
+        requestedStartDate:
+          type: string
+          format: date-time
+        requestedCompletionDate:
+          type: string
+          format: date-time
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+        orderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemCreate'
+          minItems: 1
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPartyCreate'
+        channelId:
+          type: string
+        billingAccountId:
+          type: string
+        paymentMethodId:
+          type: string
+        notificationContact:
+          type: string
+        notificationPreference:
+          type: array
+          items:
+            type: string
+            enum: [SMS, EMAIL, PUSH, IVR]
+      required:
+        - orderType
+        - orderItem
+        - relatedParty
+
+    OrderUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [URGENT, HIGH, NORMAL, LOW]
+        requestedStartDate:
+          type: string
+          format: date-time
+        requestedCompletionDate:
+          type: string
+          format: date-time
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+        channelId:
+          type: string
+        notificationContact:
+          type: string
+        notificationPreference:
+          type: array
+          items:
+            type: string
+            enum: [SMS, EMAIL, PUSH, IVR]
+
+    OrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Order'
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique item identifier
+        itemId:
+          type: string
+          description: Item sequence number
+        itemType:
+          type: string
+          enum: [COMMERCIAL, SERVICE, RESOURCE]
+          description: Decomposition level of order item
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+          description: Action to perform
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING]
+          description: Item state
+        quantity:
+          type: integer
+          minimum: 1
+        productOffering:
+          $ref: '#/components/schemas/ProductOfferingRef'
+          description: Referenced product offering
+        product:
+          $ref: '#/components/schemas/ProductRef'
+          description: Referenced product instance
+        appointment:
+          $ref: '#/components/schemas/AppointmentRef'
+          description: Associated appointment
+        billingAccount:
+          $ref: '#/components/schemas/BillingAccountRef'
+          description: Billing account for this item
+        itemPrice:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemPrice'
+          description: Pricing for this item
+        itemTotalPrice:
+          type: number
+          description: Total price for this item
+        itemRelationship:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemRelationship'
+          description: Relationships to other items
+        itemTerm:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTerm'
+          description: Terms for this item
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+          description: Item characteristics/attributes
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+          description: Item notes
+        stateHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChange'
+          description: Item state history
+        serviceDetails:
+          $ref: '#/components/schemas/ServiceDetails'
+          description: Service configuration details
+        resourceDetails:
+          $ref: '#/components/schemas/ResourceDetails'
+          description: Resource allocation details
+        startDate:
+          type: string
+          format: date-time
+          description: Item execution start
+        endDate:
+          type: string
+          format: date-time
+          description: Item execution end
+      required:
+        - id
+        - action
+        - state
+
+    OrderItemCreate:
+      type: object
+      properties:
+        itemType:
+          type: string
+          enum: [COMMERCIAL, SERVICE, RESOURCE]
+          default: COMMERCIAL
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+        productOfferingId:
+          type: string
+          description: Product offering to order
+        productId:
+          type: string
+          description: Existing product instance (for MODIFY/DELETE)
+        appointmentId:
+          type: string
+        billingAccountId:
+          type: string
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicCreate'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+        serviceDetails:
+          $ref: '#/components/schemas/ServiceDetailsCreate'
+        resourceDetails:
+          $ref: '#/components/schemas/ResourceDetailsCreate'
+        parentItemId:
+          type: string
+          description: Parent item for hierarchical decomposition
+      required:
+        - action
+        - productOfferingId
+
+    OrderItemUpdate:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        characteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicCreate'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+        appointmentId:
+          type: string
+        billingAccountId:
+          type: string
+        serviceDetails:
+          $ref: '#/components/schemas/ServiceDetailsCreate'
+        resourceDetails:
+          $ref: '#/components/schemas/ResourceDetailsCreate'
+
+    OrderItemList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        total:
+          type: integer
+
+    OrderState:
+      type: object
+      properties:
+        orderId:
+          type: string
+        currentState:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+        stateHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChange'
+        allowedTransitions:
+          type: array
+          items:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+          description: States reachable from current state
+
+    StateTransition:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+          description: Target state
+        reason:
+          type: string
+          description: Reason for state change
+        note:
+          type: string
+          description: Additional notes
+      required:
+        - state
+
+    StateChange:
+      type: object
+      properties:
+        state:
+          type: string
+        changeDate:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        changedBy:
+          type: string
+          description: User or system that made the change
+
+    OrderRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        relationshipType:
+          type: string
+          enum: [PARENT, CHILD, REPLACES, REPLACED_BY, DEPENDS_ON, DEPENDENT]
+        description:
+          type: string
+
+    ItemRelationship:
+      type: object
+      properties:
+        id:
+          type: string
+        itemId:
+          type: string
+        relationshipType:
+          type: string
+          enum: [PARENT, CHILD, DEPENDS_ON, DEPENDENT, CONFLICTS_WITH]
+        description:
+          type: string
+
+    ItemTerm:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        duration:
+          $ref: '#/components/schemas/TimePeriod'
+        autoRenewal:
+          type: boolean
+
+    ItemPrice:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        priceType:
+          type: string
+          enum: [ONE_TIME, RECURRING, USAGE]
+        price:
+          $ref: '#/components/schemas/Price'
+        taxRate:
+          type: number
+        recurringChargePeriod:
+          type: string
+          enum: [MONTHLY, QUARTERLY, YEARLY]
+
+    Price:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          description: ISO 4217 currency code
+          default: YER
+
+    ProductOfferingRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        href:
+          type: string
+        version:
+          type: string
+
+    ProductRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        href:
+          type: string
+        status:
+          type: string
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [CUSTOMER, INITIATOR, SALESPERSON, TECHNICIAN, PARTNER]
+        href:
+          type: string
+        contactEmail:
+          type: string
+        contactPhone:
+          type: string
+
+    RelatedPartyCreate:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+          enum: [CUSTOMER, INITIATOR, SALESPERSON, TECHNICIAN, PARTNER]
+      required:
+        - id
+        - role
+
+    ChannelRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        channelType:
+          type: string
+          enum: [RETAIL_STORE, CALL_CENTER, ONLINE_PORTAL, MOBILE_APP, USSD, PARTNER_API, FIELD_AGENT]
+
+    BillingAccountRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        href:
+          type: string
+
+    PaymentRef:
+      type: object
+      properties:
+        id:
+          type: string
+        paymentMethod:
+          type: string
+          enum: [CASH, CREDIT_CARD, BANK_TRANSFER, MOBILE_MONEY, INVOICE, PREPAID_BALANCE]
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, AUTHORIZED, CAPTURED, FAILED, REFUNDED]
+
+    AppointmentRef:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        date:
+          type: string
+          format: date-time
+        timeSlot:
+          type: string
+        technician:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+          enum: [STRING, NUMBER, BOOLEAN, ENUM, DATE]
+        unitOfMeasure:
+          type: string
+
+    CharacteristicCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+        valueType:
+          type: string
+          enum: [STRING, NUMBER, BOOLEAN, ENUM, DATE]
+          default: STRING
+        unitOfMeasure:
+          type: string
+      required:
+        - name
+        - value
+
+    Note:
+      type: object
+      properties:
+        id:
+          type: string
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+        noteType:
+          type: string
+          enum: [GENERAL, TECHNICAL, BILLING, CUSTOMER_CONTACT, INTERNAL]
+
+    NoteCreate:
+      type: object
+      properties:
+        text:
+          type: string
+        noteType:
+          type: string
+          enum: [GENERAL, TECHNICAL, BILLING, CUSTOMER_CONTACT, INTERNAL]
+          default: GENERAL
+      required:
+        - text
+
+    ServiceDetails:
+      type: object
+      properties:
+        serviceId:
+          type: string
+        serviceType:
+          type: string
+          enum: [VOICE, DATA, IPTV, SMS, MMS, VOICE_OVER_LTE, FIXED_LINE, BROADBAND, ENTERPRISE_VPN]
+        serviceAddress:
+          $ref: '#/components/schemas/Address'
+        bandwidth:
+          type: string
+        speedTier:
+          type: string
+        coverageArea:
+          type: string
+
+    ServiceDetailsCreate:
+      type: object
+      properties:
+        serviceType:
+          type: string
+          enum: [VOICE, DATA, IPTV, SMS, MMS, VOICE_OVER_LTE, FIXED_LINE, BROADBAND, ENTERPRISE_VPN]
+        serviceAddress:
+          $ref: '#/components/schemas/AddressCreate'
+        bandwidth:
+          type: string
+        speedTier:
+          type: string
+
+    ResourceDetails:
+      type: object
+      properties:
+        resourceId:
+          type: string
+        resourceType:
+          type: string
+          enum: [SIM_CARD, PHONE_NUMBER, MODEM, SET_TOP_BOX, FIBER_LINE, CABLE, IP_ADDRESS, VLAN]
+        serialNumber:
+          type: string
+        phoneNumber:
+          type: string
+        imsi:
+          type: string
+        msisdn:
+          type: string
+        macAddress:
+          type: string
+        status:
+          type: string
+          enum: [ALLOCATED, RESERVED, ACTIVE, INACTIVE, RETURNED]
+
+    ResourceDetailsCreate:
+      type: object
+      properties:
+        resourceType:
+          type: string
+          enum: [SIM_CARD, PHONE_NUMBER, MODEM, SET_TOP_BOX, FIBER_LINE, CABLE, IP_ADDRESS, VLAN]
+        serialNumber:
+          type: string
+        phoneNumber:
+          type: string
+        imsi:
+          type: string
+        msisdn:
+          type: string
+
+    Address:
+      type: object
+      properties:
+        id:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        governorate:
+          type: string
+        postalCode:
+          type: string
+        country:
+          type: string
+          default: Yemen
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+
+    AddressCreate:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        district:
+          type: string
+        governorate:
+          type: string
+          enum: ['Sana''a', Aden, Taiz, Hudaydah, Hadramaut, Ibb, Dhamar, Amran, Marib, Al_Jawf, Sa''da, Hajjah, Al_Mahwit, Raymah, Dhamar, Al_Bayda, Shabwah, Lahij, Abyan, Al_Mahra, Socotra]
+        postalCode:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+      required:
+        - city
+        - governorate
+
+    TimePeriod:
+      type: object
+      properties:
+        startDateTime:
+          type: string
+          format: date-time
+        endDateTime:
+          type: string
+          format: date-time
+
+    OrderValidationResult:
+      type: object
+      properties:
+        orderId:
+          type: string
+        valid:
+          type: boolean
+        validationDate:
+          type: string
+          format: date-time
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationError'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationWarning'
+
+    ValidationError:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        itemId:
+          type: string
+          description: Related order item if applicable
+        field:
+          type: string
+          description: Field that failed validation
+
+    ValidationWarning:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        itemId:
+          type: string
+
+    ProcessOrderRequest:
+      type: object
+      properties:
+        skipValidation:
+          type: boolean
+          default: false
+        processDate:
+          type: string
+          format: date-time
+          description: Scheduled processing date
+        note:
+          type: string
+
+    OrderSearchRequest:
+      type: object
+      properties:
+        orderType:
+          type: array
+          items:
+            type: string
+            enum: [ACQUISITION, MODIFICATION, TERMINATION, SUSPENSION, TRANSFER]
+        state:
+          type: array
+          items:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, FAILED, PENDING, REJECTED, HELD]
+        priority:
+          type: array
+          items:
+            type: string
+            enum: [URGENT, HIGH, NORMAL, LOW]
+        customerId:
+          type: string
+        customerName:
+          type: string
+        channel:
+          type: string
+        orderDateFrom:
+          type: string
+          format: date-time
+        orderDateTo:
+          type: string
+          format: date-time
+        completionDateFrom:
+          type: string
+          format: date-time
+        completionDateTo:
+          type: string
+          format: date-time
+        productOfferingId:
+          type: string
+        externalId:
+          type: string
+        billingAccountId:
+          type: string
+        keyword:
+          type: string
+          description: Free text search in description and notes
+        page:
+          type: integer
+          default: 0
+        size:
+          type: integer
+          default: 20
+        sort:
+          type: string
+          description: Sort field and direction (e.g., orderDate:desc)
+
+    OrderStats:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/TimePeriod'
+        totalOrders:
+          type: integer
+        byState:
+          type: object
+          additionalProperties:
+            type: integer
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+        byChannel:
+          type: object
+          additionalProperties:
+            type: integer
+        byPriority:
+          type: object
+          additionalProperties:
+            type: integer
+        averageCompletionTime:
+          type: number
+          description: Average completion time in hours
+        completionRate:
+          type: number
+          description: Percentage of completed orders
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+              code:
+                type: string

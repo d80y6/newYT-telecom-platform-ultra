@@ -1,0 +1,1167 @@
+openapi: 3.0.3
+info:
+  title: Resource Order Management API
+  description: |
+    TMF640-compliant Resource Order Management API for Yemen PTC.
+    Manages resource provisioning orders for network equipment, SIM cards, 
+    phone numbers, and infrastructure deployment.
+    Supports order decomposition: Resource Order -> Work Orders -> Tasks.
+  version: 1.0.0
+  contact:
+    name: Yemen PTC API Support
+    email: api-support@yemen-telecom.ye
+
+servers:
+  - url: http://api-gateway:8080/api/v1
+    description: Production API Gateway
+  - url: http://localhost:8080/api/v1
+    description: Local Development
+
+tags:
+  - name: Resource Orders
+    description: Resource order lifecycle management
+  - name: Order Items
+    description: Resource order items
+  - name: Work Orders
+    description: Work orders for field operations
+  - name: Order Tasks
+    description: Individual tasks within work orders
+  - name: Resource Assignment
+    description: Resource allocation and assignment
+
+paths:
+  /resourceOrder/v4/resourceOrder:
+    get:
+      tags: [Resource Orders]
+      summary: List resource orders
+      operationId: listResourceOrders
+      parameters:
+        - name: state
+          in: query
+          schema:
+            type: string
+            enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, PENDING, REJECTED]
+        - name: orderType
+          in: query
+          schema:
+            type: string
+            enum: [PROVISION, MODIFY, TERMINATE, SWAP, REPAIR, AUDIT]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [CRITICAL, HIGH, NORMAL, LOW]
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+            enum: [SIM_CARD, PHONE_NUMBER, MODEM, SET_TOP_BOX, FIBER_LINE, IP_ADDRESS, VLAN, OLT_PORT, EQUIPMENT]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Resource orders retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderList'
+
+    post:
+      tags: [Resource Orders]
+      summary: Create resource order
+      operationId: createResourceOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceOrderCreate'
+      responses:
+        '201':
+          description: Resource order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrder'
+
+  /resourceOrder/v4/resourceOrder/{id}:
+    get:
+      tags: [Resource Orders]
+      summary: Get resource order by ID
+      operationId: getResourceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource order retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrder'
+        '404':
+          description: Resource order not found
+
+    patch:
+      tags: [Resource Orders]
+      summary: Update resource order
+      operationId: updateResourceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceOrderUpdate'
+      responses:
+        '200':
+          description: Resource order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrder'
+
+    delete:
+      tags: [Resource Orders]
+      summary: Cancel resource order
+      operationId: cancelResourceOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Resource order cancelled
+
+  /resourceOrder/v4/resourceOrder/{id}/state:
+    patch:
+      tags: [Resource Orders]
+      summary: Change resource order state
+      operationId: changeResourceOrderState
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StateChangeRequest'
+      responses:
+        '200':
+          description: State changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrder'
+
+  /resourceOrder/v4/resourceOrder/{id}/item:
+    get:
+      tags: [Order Items]
+      summary: Get resource order items
+      operationId: getResourceOrderItems
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order items retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderItemList'
+
+    post:
+      tags: [Order Items]
+      summary: Add item to resource order
+      operationId: addResourceOrderItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceOrderItemCreate'
+      responses:
+        '201':
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderItem'
+
+  /resourceOrder/v4/resourceOrder/{id}/item/{itemId}:
+    get:
+      tags: [Order Items]
+      summary: Get resource order item
+      operationId: getResourceOrderItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order item retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderItem'
+
+    patch:
+      tags: [Order Items]
+      summary: Update resource order item
+      operationId: updateResourceOrderItem
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceOrderItemUpdate'
+      responses:
+        '200':
+          description: Order item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderItem'
+
+  /resourceOrder/v4/resourceOrder/{id}/workOrder:
+    get:
+      tags: [Work Orders]
+      summary: Get work orders for resource order
+      operationId: getWorkOrders
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Work orders retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrderList'
+
+    post:
+      tags: [Work Orders]
+      summary: Create work order
+      operationId: createWorkOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkOrderCreate'
+      responses:
+        '201':
+          description: Work order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+
+  /resourceOrder/v4/resourceOrder/{id}/workOrder/{workOrderId}:
+    get:
+      tags: [Work Orders]
+      summary: Get work order
+      operationId: getWorkOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Work order retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+
+    patch:
+      tags: [Work Orders]
+      summary: Update work order
+      operationId: updateWorkOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkOrderUpdate'
+      responses:
+        '200':
+          description: Work order updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+
+  /resourceOrder/v4/resourceOrder/{id}/workOrder/{workOrderId}/task:
+    get:
+      tags: [Order Tasks]
+      summary: Get tasks for work order
+      operationId: getWorkOrderTasks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tasks retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskList'
+
+    post:
+      tags: [Order Tasks]
+      summary: Add task to work order
+      operationId: addWorkOrderTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /resourceOrder/v4/resourceOrder/{id}/workOrder/{workOrderId}/task/{taskId}:
+    patch:
+      tags: [Order Tasks]
+      summary: Update task
+      operationId: updateTask
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: workOrderId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  /resourceOrder/v4/resourceOrder/{id}/assignment:
+    post:
+      tags: [Resource Assignment]
+      summary: Assign resources to order
+      operationId: assignResources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceAssignmentRequest'
+      responses:
+        '200':
+          description: Resources assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceAssignmentResponse'
+
+  /resourceOrder/v4/resourceOrder/{id}/reservation:
+    post:
+      tags: [Resource Assignment]
+      summary: Reserve resources for order
+      operationId: reserveResources
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceReservationRequest'
+      responses:
+        '200':
+          description: Resources reserved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceReservationResponse'
+
+  /resourceOrder/v4/search:
+    post:
+      tags: [Resource Orders]
+      summary: Search resource orders
+      operationId: searchResourceOrders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceOrderSearchRequest'
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderList'
+
+  /resourceOrder/v4/statistics:
+    get:
+      tags: [Resource Orders]
+      summary: Get resource order statistics
+      operationId: getResourceOrderStatistics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [DAY, WEEK, MONTH, QUARTER, YEAR]
+            default: MONTH
+      responses:
+        '200':
+          description: Statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceOrderStatistics'
+
+components:
+  schemas:
+    ResourceOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        href:
+          type: string
+        externalId:
+          type: string
+        orderType:
+          type: string
+          enum: [PROVISION, MODIFY, TERMINATE, SWAP, REPAIR, AUDIT]
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, NORMAL, LOW]
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, PENDING, REJECTED]
+        orderDate:
+          type: string
+          format: date-time
+        expectedCompletionDate:
+          type: string
+          format: date-time
+        completionDate:
+          type: string
+          format: date-time
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedParty'
+        resourceOrderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceOrderItem'
+        workOrder:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkOrder'
+        place:
+          $ref: '#/components/schemas/Place'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        stateHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChange'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ResourceOrderCreate:
+      type: object
+      properties:
+        externalId:
+          type: string
+        orderType:
+          type: string
+          enum: [PROVISION, MODIFY, TERMINATE, SWAP, REPAIR, AUDIT]
+        description:
+          type: string
+        category:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, NORMAL, LOW]
+        expectedCompletionDate:
+          type: string
+          format: date-time
+        relatedParty:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelatedPartyCreate'
+        resourceOrderItem:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceOrderItemCreate'
+        place:
+          $ref: '#/components/schemas/PlaceCreate'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+
+    ResourceOrderUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+        priority:
+          type: string
+        expectedCompletionDate:
+          type: string
+          format: date-time
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+
+    ResourceOrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceOrder'
+        total:
+          type: integer
+        page:
+          type: integer
+        size:
+          type: integer
+
+    ResourceOrderItem:
+      type: object
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+        state:
+          type: string
+          enum: [ACKNOWLEDGED, IN_PROGRESS, COMPLETED, CANCELLED, PENDING, FAILED]
+        resourceSpecification:
+          $ref: '#/components/schemas/ResourceSpecificationRef'
+        resource:
+          $ref: '#/components/schemas/ResourceRef'
+        resourceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          $ref: '#/components/schemas/Place'
+        appointment:
+          $ref: '#/components/schemas/Appointment'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+        stateHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChange'
+
+    ResourceOrderItemCreate:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [ADD, MODIFY, DELETE, NO_CHANGE]
+        resourceSpecificationId:
+          type: string
+        resourceId:
+          type: string
+        resourceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicCreate'
+        place:
+          $ref: '#/components/schemas/PlaceCreate'
+        appointmentId:
+          type: string
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+
+    ResourceOrderItemUpdate:
+      type: object
+      properties:
+        resourceCharacteristic:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+        place:
+          $ref: '#/components/schemas/PlaceCreate'
+        appointmentId:
+          type: string
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+
+    ResourceOrderItemList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceOrderItem'
+        total:
+          type: integer
+
+    WorkOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        externalId:
+          type: string
+        workOrderType:
+          type: string
+          enum: [INSTALLATION, CONFIGURATION, REPAIR, MAINTENANCE, AUDIT, REMOVAL]
+        description:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ASSIGNED, IN_PROGRESS, COMPLETED, CANCELLED, ON_HOLD]
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, NORMAL, LOW]
+        scheduledDate:
+          type: string
+          format: date-time
+        scheduledTimeSlot:
+          type: string
+        actualStartDate:
+          type: string
+          format: date-time
+        actualEndDate:
+          type: string
+          format: date-time
+        assignedTechnician:
+          $ref: '#/components/schemas/Technician'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        place:
+          $ref: '#/components/schemas/Place'
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/Note'
+
+    WorkOrderCreate:
+      type: object
+      properties:
+        workOrderType:
+          type: string
+          enum: [INSTALLATION, CONFIGURATION, REPAIR, MAINTENANCE, AUDIT, REMOVAL]
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, NORMAL, LOW]
+        scheduledDate:
+          type: string
+          format: date-time
+        scheduledTimeSlot:
+          type: string
+        technicianId:
+          type: string
+        place:
+          $ref: '#/components/schemas/PlaceCreate'
+
+    WorkOrderUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+        scheduledDate:
+          type: string
+          format: date-time
+        technicianId:
+          type: string
+        note:
+          type: array
+          items:
+            $ref: '#/components/schemas/NoteCreate'
+
+    WorkOrderList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkOrder'
+        total:
+          type: integer
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        taskType:
+          type: string
+          enum: [PREPARATION, INSTALLATION, CONFIGURATION, TESTING, VERIFICATION, CLEANUP]
+        status:
+          type: string
+          enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED, BLOCKED]
+        sequence:
+          type: integer
+        estimatedDuration:
+          type: integer
+          description: Duration in minutes
+        actualDuration:
+          type: integer
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        technician:
+          $ref: '#/components/schemas/Technician'
+        dependencies:
+          type: array
+          items:
+            type: string
+        result:
+          type: string
+
+    TaskCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        taskType:
+          type: string
+          enum: [PREPARATION, INSTALLATION, CONFIGURATION, TESTING, VERIFICATION, CLEANUP]
+        sequence:
+          type: integer
+        estimatedDuration:
+          type: integer
+        dependencies:
+          type: array
+          items:
+            type: string
+
+    TaskUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+        result:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+
+    TaskList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        total:
+          type: integer
+
+    Technician:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        employeeId:
+          type: string
+        skill:
+          type: array
+          items:
+            type: string
+        phone:
+          type: string
+        email:
+          type: string
+        availability:
+          type: string
+
+    ResourceAssignmentRequest:
+      type: object
+      properties:
+        itemId:
+          type: string
+        resourceIds:
+          type: array
+          items:
+            type: string
+
+    ResourceAssignmentResponse:
+      type: object
+      properties:
+        assignmentId:
+          type: string
+        assignedResources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        status:
+          type: string
+
+    ResourceReservationRequest:
+      type: object
+      properties:
+        itemId:
+          type: string
+        resourceSpecificationId:
+          type: string
+        quantity:
+          type: integer
+        characteristics:
+          type: array
+          items:
+            $ref: '#/components/schemas/CharacteristicCreate'
+
+    ResourceReservationResponse:
+      type: object
+      properties:
+        reservationId:
+          type: string
+        reservedResources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceRef'
+        validUntil:
+          type: string
+          format: date-time
+
+    ResourceSpecificationRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        resourceType:
+          type: string
+
+    ResourceRef:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        resourceType:
+          type: string
+        status:
+          type: string
+
+    RelatedParty:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+
+    RelatedPartyCreate:
+      type: object
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          $ref: '#/components/schemas/Address'
+
+    PlaceCreate:
+      type: object
+      properties:
+        id:
+          type: string
+
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        governorate:
+          type: string
+        country:
+          type: string
+
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+        date:
+          type: string
+          format: date-time
+        timeSlot:
+          type: string
+        status:
+          type: string
+
+    Characteristic:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    CharacteristicCreate:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    Note:
+      type: object
+      properties:
+        author:
+          type: string
+        date:
+          type: string
+          format: date-time
+        text:
+          type: string
+
+    NoteCreate:
+      type: object
+      properties:
+        text:
+          type: string
+
+    StateChange:
+      type: object
+      properties:
+        state:
+          type: string
+        changeDate:
+          type: string
+          format: date-time
+        reason:
+          type: string
+        changedBy:
+          type: string
+
+    StateChangeRequest:
+      type: object
+      properties:
+        state:
+          type: string
+        reason:
+          type: string
+
+    ResourceOrderSearchRequest:
+      type: object
+      properties:
+        orderType:
+          type: string
+        state:
+          type: string
+        priority:
+          type: string
+        resourceType:
+          type: string
+        customerId:
+          type: string
+        fromDate:
+          type: string
+          format: date-time
+        toDate:
+          type: string
+          format: date-time
+
+    ResourceOrderStatistics:
+      type: object
+      properties:
+        totalOrders:
+          type: integer
+        byState:
+          type: object
+        byType:
+          type: object
+        byPriority:
+          type: object
+        averageCompletionTime:
+          type: number
+        completionRate:
+          type: number
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

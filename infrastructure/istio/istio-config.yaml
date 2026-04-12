@@ -1,0 +1,49 @@
+# Istio Service Mesh Configuration
+# Ambient mode with strict mTLS
+
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-control-plane
+spec:
+  profile: ambient
+  meshConfig:
+    accessLogFile: /dev/stdout
+    enableTracing: true
+    defaultConfig:
+      tracing:
+        sampling: 100
+    extensionProviders:
+      - name: prometheus
+        prometheus: {}
+  values:
+    pilot:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: bss-oss
+spec:
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: bss-api-policy
+  namespace: bss-oss
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/bss-oss/sa/api-gateway"
+    - to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
