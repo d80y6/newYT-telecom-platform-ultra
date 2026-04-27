@@ -103,6 +103,28 @@ public class Customer extends TmfCharacteristics {
     @Column(name = "marketing_consent")
     private Boolean marketingConsent = false;
 
+    // TMF629 Demographic and Profile Fields
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Column(length = 20)
+    private String gender;
+
+    @Column(length = 50)
+    private String nationality = "YE";
+
+    @Column(length = 100)
+    private String occupation;
+
+    @Column(length = 100)
+    private String employer;
+
+    @Column(name = "income_level", length = 50)
+    private String incomeLevel;
+
+    @Column(name = "passport_number", length = 50)
+    private String passportNumber;
+
     @Override
     protected String getApiPath() {
         return "/tmf-api/customerManagement/v5/customer";

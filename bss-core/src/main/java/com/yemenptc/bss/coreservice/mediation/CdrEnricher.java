@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -39,10 +40,10 @@ public class CdrEnricher {
     private void enrichFromSubscriberIdentifier(UsageEvent event) {
         String identifier = event.getSourceSystem();
         
-        Optional<Subscription> subscription = subscriptionRepository
+        List<Subscription> subscriptions = subscriptionRepository
                 .findByServiceIdentifier(identifier);
         
-        if (subscription.isEmpty()) {
+        if (subscriptions.isEmpty()) {
             Optional<Customer> customer = customerRepository
                     .findByPrimaryPhone(identifier);
             
@@ -51,6 +52,10 @@ public class CdrEnricher {
                 log.info("Found customer {} for identifier {}", 
                         customerObj.getExternalId(), identifier);
             }
+        } else {
+            Subscription subscription = subscriptions.get(0);
+            event.setSubscriptionId(UUID.fromString(subscription.getId()));
+            event.setCustomerId(subscription.getCustomerId());
         }
     }
 

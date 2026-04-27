@@ -58,7 +58,24 @@ spec:
         port: 9093
         type: internal
         tls: true
+        authentication:
+          type: tls
+      - name: external
+        port: 9094
+        type: route
+        tls: true
+        authentication:
+          type: tls
+    authorization:
+      type: simple
     config:
+      ssl.keystore.type: PKCS12
+      ssl.truststore.type: PKCS12
+      ssl.enabled.protocols: TLSv1.3
+      ssl.endpoint.identification.algorithm: HTTPS
+      ssl.client.auth: required
+      ssl.keystore.location: /tmp/kafka/cluster.keystore.p12
+      ssl.truststore.location: /tmp/kafka/cluster.truststore.p12
       offsets.topic.replication.factor: 3
       transaction.state.log.replication.factor: 3
       transaction.state.log.min.isr: 2

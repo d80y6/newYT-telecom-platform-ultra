@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
 
-@Entity @Table(name = "network_elements") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Entity @Table(name = "network_elements") @Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class NetworkElement {
     @Id @Column(length = 36) private String id;
     @Column(name = "element_name", nullable = false, length = 100) private String name;

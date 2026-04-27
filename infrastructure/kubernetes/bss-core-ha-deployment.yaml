@@ -149,9 +149,12 @@ data:
         hikari:
           maximum-pool-size: 50
           minimum-idle: 10
-          connection-timeout: 30000
-          idle-timeout: 600000
-          max-lifetime: 1800000
+        connection-timeout: 30000
+        idle-timeout: 600000
+        max-lifetime: 1800000
+        leak-detection-threshold: 60000
+        pool-name: BSS-Core-Pool
+        register-mbeans: true
       redis:
         cluster:
           nodes: redis-0:6379,redis-1:6379,redis-2:6379,redis-3:6379,redis-4:6379,redis-5:6379

@@ -11,4 +11,5 @@ public interface UsageEventRepository extends JpaRepository<UsageEvent, UUID> {
     List<UsageEvent> findBySubscriptionId(UUID subscriptionId);
     List<UsageEvent> findByServiceType(String serviceType);
     List<UsageEvent> findBySourceSystem(String sourceSystem);
+    List<UsageEvent> findByEventId(String eventId);
 }

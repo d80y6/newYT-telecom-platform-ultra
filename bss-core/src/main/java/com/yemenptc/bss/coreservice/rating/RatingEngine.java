@@ -83,7 +83,7 @@ public class RatingEngine {
         BigDecimal discountAmount = applyDiscounts(totalCharge, rules);
         totalCharge = totalCharge.subtract(discountAmount);
         
-        BigDecimal taxAmount = totalCharge.multiply(TAX_RATE).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal taxAmount = totalCharge.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal totalWithTax = totalCharge.add(taxAmount);
         
         totalCharge = enforceMinMaxCharge(totalCharge, rules);

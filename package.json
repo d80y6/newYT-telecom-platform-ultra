@@ -1,1 +1,12 @@
-{}
+{
+  "name": "yemenptc-bss-root",
+  "version": "1.0.0",
+  "description": "Root configuration for Yemen PTC BSS Platform",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Root package - no build needed'",
+    "test": "echo 'Root package - no tests'"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}

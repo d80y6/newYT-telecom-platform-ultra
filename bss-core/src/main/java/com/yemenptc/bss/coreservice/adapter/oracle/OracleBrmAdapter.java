@@ -26,14 +26,17 @@ import java.util.Map;
 @Slf4j
 public class OracleBrmAdapter implements ExternalAdapter {
 
-    @Value("${oracle-brm.api.base-url:http://brm.internal:8080}")
+    @Value("${oracle-brm.api.base-url}")
     private String baseUrl;
 
-    @Value("${oracle-brm.api.username:brm_user}")
+    @Value("${oracle-brm.api.username}")
     private String username;
 
-    @Value("${oracle-brm.api.password:brm_pass}")
+    @Value("${oracle-brm.api.password}")
     private String password;
+    
+    @Value("${oracle-brm.api.timeout:30000}")
+    private int apiTimeout;
 
     private final RestTemplate restTemplate;
 

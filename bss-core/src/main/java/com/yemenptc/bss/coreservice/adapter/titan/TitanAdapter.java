@@ -21,10 +21,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class TitanAdapter implements ExternalAdapter {
 
-    @Value("${titan.tl1.host:localhost}")
+    @Value("${titan.tl1.host}")
     private String tl1Host;
 
-    @Value("${titan.tl1.port:2362}")
+    @Value("${titan.tl1.port}")
     private int tl1Port;
 
     @Value("${titan.tl1.timeout:30000}")

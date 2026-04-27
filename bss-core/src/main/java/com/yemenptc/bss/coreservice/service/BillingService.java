@@ -1,11 +1,13 @@
 package com.yemenptc.bss.coreservice.service;
 
 import com.yemenptc.bss.coreservice.entity.Invoice;
+import com.yemenptc.bss.coreservice.entity.InvoiceItem;
 import com.yemenptc.bss.coreservice.entity.Payment;
 import com.yemenptc.bss.coreservice.entity.Account;
 import com.yemenptc.bss.coreservice.repository.InvoiceRepository;
 import com.yemenptc.bss.coreservice.repository.PaymentRepository;
 import com.yemenptc.bss.coreservice.repository.AccountRepository;
+import com.yemenptc.bss.coreservice.repository.InvoiceItemRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
@@ -36,14 +38,14 @@ public class BillingService {
     @Retry(name = "billingService")
     @Bulkhead(name = "billingService")
     public Invoice createInvoice(Invoice request) {
-        if (request.getSubtotalAmount() == null || request.getSubtotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.getSubtotal() == null || request.getSubtotal().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Invoice subtotal amount must be greater than zero");
         }
         
         Invoice invoice = Invoice.builder()
             .accountId(request.getAccountId())
             .status(Invoice.InvoiceStatus.DRAFT)
-            .subtotalAmount(request.getSubtotalAmount())
+            .subtotal(request.getSubtotal())
             .discountAmount(request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO)
             .taxAmount(BigDecimal.ZERO)
             .totalAmount(BigDecimal.ZERO)
@@ -64,7 +66,7 @@ public class BillingService {
         }
         
         BigDecimal taxRate = new BigDecimal("0.05");
-        BigDecimal taxableAmount = invoice.getSubtotalAmount().subtract(invoice.getDiscountAmount());
+        BigDecimal taxableAmount = invoice.getSubtotal().subtract(invoice.getDiscountAmount());
         BigDecimal taxAmount = taxableAmount.multiply(taxRate);
         BigDecimal total = taxableAmount.add(taxAmount);
         

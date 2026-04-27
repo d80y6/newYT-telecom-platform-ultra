@@ -65,6 +65,10 @@ public class AuditEvent {
     @Column(nullable = false)
     private boolean success;
 
+    public enum EventStatus {
+        SUCCESS, FAILURE, PENDING, SKIPPED
+    }
+
     @PrePersist
     protected void onCreate() {
         if (eventId == null) {

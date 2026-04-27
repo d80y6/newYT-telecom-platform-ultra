@@ -7,7 +7,11 @@ import java.time.Instant;
 @Entity @Table(name = "order_items") @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class OrderItem {
     @Id @Column(length = 36) private String id;
-    @Column(name = "order_id", nullable = false, length = 36) private String orderId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
+
     @Column(name = "item_type", nullable = false, length = 30) private String itemType;
     @Column(name = "product_offering_id", length = 36) private String productOfferingId;
     @Column(name = "subscription_id", length = 36) private String subscriptionId;

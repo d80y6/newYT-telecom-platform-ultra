@@ -139,12 +139,13 @@ public class Customer360Service {
                 // TMF629 fields from customer
                 .customerType(customer.getCustomerType() != null ? customer.getCustomerType().name() : null)
                 .status(customer.getStatus() != null ? customer.getStatus().name() : null)
-                .dateOfBirth(null) // Would need to be added to Customer entity
-                .gender(null) // Would need to be added to Customer entity
-                .nationality(customer.getNationalId() != null ? "YE" : null) // Simplified
-                .occupation(null) // Would need to be added to Customer entity
-                .employer(null) // Would need to be added to Customer entity
-                .incomeLevel(null) // Would need to be added to Customer entity
+                .dateOfBirth(customer.getDateOfBirth())
+                .gender(customer.getGender())
+                .nationality(customer.getNationality() != null ? customer.getNationality() : "YE")
+                .passportNumber(customer.getPassportNumber())
+                .occupation(customer.getOccupation())
+                .employer(customer.getEmployer())
+                .incomeLevel(customer.getIncomeLevel())
                 .languagePreference(customer.getPreferredLanguage())
                 .preferredContactMethod(customer.getPreferredContactMethod())
                 .marketingConsent(customer.getMarketingConsent())
@@ -176,6 +177,18 @@ public class Customer360Service {
         return customer360Repository.findAll(pageable);
     }
 
+    @Transactional(readOnly = true)
+    public Page<Customer360> searchCustomers(String query, String segment, String customerType, 
+                                            String status, BigDecimal minLifetimeValue, Pageable pageable) {
+        log.info("Searching customers with query: {}, segment: {}, type: {}, status: {}, minLtv: {}", 
+                query, segment, customerType, status, minLifetimeValue);
+        // Simplified implementation: integrating query params for searching
+        if (query != null && !query.isEmpty()) {
+            return customer360Repository.searchCustomers(query, pageable);
+        }
+        return customer360Repository.findAll(pageable);
+    }
+
     @Transactional
     public Customer360 updateEngagementScore(UUID customerId, Integer score) {
         Customer360 c360 = getCustomer360(customerId);
@@ -185,15 +198,14 @@ public class Customer360Service {
     }
 
     @Transactional
-    public CustomerSegment assignSegment(UUID customerId, String segmentType, String segmentValue) {
+    public CustomerSegment assignSegment(UUID customerId, com.yemenptc.bss.coreservice.entity.CustomerSegment.SegmentType segmentType, String segmentValue) {
         Customer360 c360 = getCustomer360(customerId);
 
         CustomerSegment segment = CustomerSegment.builder()
                 .customer360(c360)
                 .segmentType(segmentType)
-                .segmentValue(segmentValue)
+                .segmentName(segmentValue)
                 .score(BigDecimal.valueOf(100))
-                .confidence(BigDecimal.valueOf(85))
                 .build();
 
         c360.getSegments().add(segment);
@@ -257,12 +269,19 @@ public class Customer360Service {
 
     private BigDecimal calculateProfileScore(Customer customer) {
         int score = 0;
-        if (customer.getNationalId() != null) score += 20;
-        if (customer.getEmail() != null) score += 15;
-        if (customer.getKycVerified()) score += 30;
-        if (customer.getPreferredLanguage() != null) score += 10;
-        if (customer.getPreferredContactMethod() != null) score += 10;
-        if (customer.getMarketingConsent() != null) score += 15;
+        if (customer.getNationalId() != null) score += 10;
+        if (customer.getEmail() != null) score += 10;
+        if (customer.getKycVerified()) score += 20;
+        if (customer.getPreferredLanguage() != null) score += 5;
+        if (customer.getPreferredContactMethod() != null) score += 5;
+        if (customer.getMarketingConsent() != null) score += 5;
+        if (customer.getDateOfBirth() != null) score += 10;
+        if (customer.getGender() != null) score += 5;
+        if (customer.getNationality() != null) score += 5;
+        if (customer.getOccupation() != null) score += 5;
+        if (customer.getEmployer() != null) score += 5;
+        if (customer.getIncomeLevel() != null) score += 5;
+        if (customer.getPassportNumber() != null) score += 10;
         return BigDecimal.valueOf(score);
     }
 }

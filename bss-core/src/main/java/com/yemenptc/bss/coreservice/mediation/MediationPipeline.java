@@ -19,7 +19,7 @@ public class MediationPipeline {
     private final CdrParser cdrParser;
     private final CdrDeduplicator cdrDeduplicator;
     private final CdrEnricher cdrEnricher;
-    private final KafkaTemplate<String, UsageEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     
     private static final String USAGE_EVENTS_TOPIC = "usage.events";
     private static final String CDR_DEAD_LETTER_TOPIC = "events.dlq";
@@ -119,7 +119,7 @@ public class MediationPipeline {
         String key = event.getSubscriptionId() != null ? 
                 event.getSubscriptionId().toString() : event.getEventId();
         
-        CompletableFuture<SendResult<String, UsageEvent>> future = 
+        CompletableFuture<SendResult<String, Object>> future = 
                 kafkaTemplate.send(USAGE_EVENTS_TOPIC, key, event);
         
         future.whenComplete((result, ex) -> {

@@ -23,6 +23,9 @@ public class UsageEvent extends BaseTmfEntity {
     @Column(name = "subscription_id", columnDefinition = "uuid")
     private UUID subscriptionId;
 
+    @Column(name = "customer_id")
+    private String customerId;
+
     @Column(name = "service_type", nullable = false, length = 30)
     private String serviceType;
 

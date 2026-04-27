@@ -27,8 +27,8 @@ public class Invoice extends BaseTmfEntity {
     @Column(nullable = false, length = 20)
     private InvoiceStatus status = InvoiceStatus.DRAFT;
 
-    @Column(name = "subtotal_amount", precision = 15, scale = 2)
-    private BigDecimal subtotalAmount = BigDecimal.ZERO;
+    @Column(name = "subtotal", precision = 15, scale = 2)
+    private BigDecimal subtotal = BigDecimal.ZERO;
 
     @Column(name = "discount_amount", precision = 15, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
@@ -48,10 +48,13 @@ public class Invoice extends BaseTmfEntity {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
+    @Column(name = "invoice_date")
+    private java.time.Instant invoiceDate;
+
     @Override
     protected String getApiPath() {
         return "/tmf-api/customerBillManagement/v5/bill";
     }
 
-    public enum InvoiceStatus { DRAFT, FINALIZED, PAID, OVERDUE, CANCELLED }
+    public enum InvoiceStatus { DRAFT, FINALIZED, PAID, OVERDUE, CANCELLED, PENDING }
 }

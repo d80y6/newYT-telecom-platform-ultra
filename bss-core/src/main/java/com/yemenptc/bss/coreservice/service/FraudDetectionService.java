@@ -2,6 +2,7 @@ package com.yemenptc.bss.coreservice.service;
 
 import com.yemenptc.bss.coreservice.entity.FraudAlert;
 import com.yemenptc.bss.coreservice.repository.FraudAlertRepository;
+import com.yemenptc.bss.coreservice.ml.ShadowInferenceLog;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -161,6 +162,51 @@ public class FraudDetectionService {
                 .ruleName("Failed Auth Pattern Detection")
                 .build());
             return true;
+        }
+        
+        // Behavioral Baselining (Phase 2 ML)
+        runShadowModelCheck(accountId, failedAttempts);
+        
+        return false;
+    }
+
+    private void runShadowModelCheck(String accountId, int value) {
+        log.info("Running shadow model check for account {}: value={}", accountId, value);
+        
+        // Construct feature string for the shadow log
+        String features = String.format("failedAttempts=%d", value);
+        
+        ShadowInferenceLog logEntry = ShadowInferenceLog.builder()
+            .modelId("FRAUD_V1_SHADOW")
+            .entityType("ACCOUNT")
+            .entityId(accountId)
+            .predictedScore(BigDecimal.valueOf(value > 2 ? 0.8 : 0.2))
+            .features(features)
+            .timestamp(java.time.Instant.now())
+            .build();
+            
+        log.info("SHADOW MODE: Logged inference for {}: {}", accountId, logEntry);
+    }
+
+    @Transactional
+    public boolean checkBehavioralAnomaly(String accountId, BigDecimal currentUsage, BigDecimal averageUsage) {
+        log.info("Checking behavioral anomaly for account {}: current={}, avg={}", 
+                accountId, currentUsage, averageUsage);
+        
+        if (averageUsage.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal ratio = currentUsage.divide(averageUsage, 2, java.math.RoundingMode.HALF_UP);
+            if (ratio.compareTo(new BigDecimal("3.0")) > 0) { // 3x average usage
+                createAlert(FraudAlert.builder()
+                    .alertType(FraudAlert.FraudAlertType.USAGE_SPIKE)
+                    .accountId(accountId)
+                    .description("Behavioral anomaly detected: Usage is " + ratio + "x average")
+                    .triggerValue(currentUsage)
+                    .thresholdValue(averageUsage.multiply(new BigDecimal("3.0")))
+                    .ruleId("RULE_BEHAVIORAL_ANOMALY")
+                    .ruleName("Behavioral Baselining")
+                    .build());
+                return true;
+            }
         }
         return false;
     }

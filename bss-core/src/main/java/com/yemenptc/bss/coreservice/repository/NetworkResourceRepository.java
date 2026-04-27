@@ -10,7 +10,8 @@ import java.util.UUID;
 @Repository
 public interface NetworkResourceRepository extends JpaRepository<NetworkResource, UUID> {
     List<NetworkResource> findByResourceType(String resourceType);
-    List<NetworkResource> findByResourceStatus(NetworkResource.ResourceStatus status);
+    List<NetworkResource> findByStatus(NetworkResource.ResourceStatus status);
     Optional<NetworkResource> findByResourceIdentifier(String resourceIdentifier);
     List<NetworkResource> findByParentResourceId(UUID parentResourceId);
+    Optional<NetworkResource> findByServiceId(String serviceId);
 }

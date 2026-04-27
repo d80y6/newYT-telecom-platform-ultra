@@ -88,6 +88,10 @@ public class ResourceOrder extends BaseTmfEntity {
     @Builder.Default
     private List<ResourceOrderItem> items = new ArrayList<>();
 
+    @OneToMany(mappedBy = "resourceOrder", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<WorkOrder> workOrders = new ArrayList<>();
+
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 

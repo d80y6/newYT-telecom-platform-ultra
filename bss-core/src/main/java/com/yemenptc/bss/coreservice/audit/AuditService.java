@@ -33,16 +33,14 @@ public class AuditService {
                     .eventId(UUID.randomUUID().toString())
                     .eventType(request.getEventType())
                     .entityType(request.getEntityType())
-                    .entityId(request.getEntityId())
+                    .entityId(request.getEntityId() != null ? UUID.fromString(request.getEntityId()) : null)
                     .action(request.getAction())
-                    .userId(request.getUserId())
-                    .userName(request.getUserName())
+                    .userId(request.getUserId() != null ? UUID.fromString(request.getUserId()) : null)
+                    .username(request.getUserName())
                     .ipAddress(request.getIpAddress())
-                    .userAgent(request.getUserAgent())
-                    .oldValue(request.getOldValue())
-                    .newValue(request.getNewValue())
-                    .metadata(request.getMetadata())
-                    .status(request.getStatus() != null ? request.getStatus() : AuditEvent.EventStatus.SUCCESS)
+                    .previousState(request.getOldValue())
+                    .newState(request.getNewValue())
+                    .success(request.getStatus() == AuditEvent.EventStatus.SUCCESS)
                     .build();
             
             auditEventRepository.save(event);
@@ -63,17 +61,17 @@ public class AuditService {
     
     @Transactional(readOnly = true)
     public List<AuditEvent> getEventsByEntity(String entityType, String entityId) {
-        return auditEventRepository.findByEntityTypeAndEntityIdOrderByCreatedAtDesc(entityType, entityId);
+        return auditEventRepository.findByEntityTypeAndEntityIdOrderByTimestampDesc(entityType, UUID.fromString(entityId));
     }
     
     @Transactional(readOnly = true)
     public List<AuditEvent> getEventsByUser(String userId) {
-        return auditEventRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return auditEventRepository.findByUserIdOrderByTimestampDesc(UUID.fromString(userId));
     }
     
     @Transactional(readOnly = true)
     public List<AuditEvent> getEventsByType(String eventType) {
-        return auditEventRepository.findByEventTypeOrderByCreatedAtDesc(eventType);
+        return auditEventRepository.findByEventTypeOrderByTimestampDesc(eventType);
     }
     
     @Transactional(readOnly = true)
@@ -83,12 +81,12 @@ public class AuditService {
     
     @Transactional(readOnly = true)
     public List<AuditEvent> getEventsByTimeRange(Instant start, Instant end) {
-        return auditEventRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
+        return auditEventRepository.findByTimestampBetweenOrderByTimestampDesc(start, end);
     }
     
     @Transactional(readOnly = true)
     public List<AuditEvent> getFailedEvents() {
-        return auditEventRepository.findByStatusOrderByCreatedAtDesc(AuditEvent.EventStatus.FAILED);
+        return auditEventRepository.findBySuccessOrderByTimestampDesc(false);
     }
     
     public void logCreate(String entityType, String entityId, Object newValue, AuditContext context) {
@@ -164,7 +162,7 @@ public class AuditService {
                 .ipAddress(context.getIpAddress())
                 .userAgent(context.getUserAgent())
                 .metadata(errorMessage)
-                .status(AuditEvent.EventStatus.FAILED)
+                .status(AuditEvent.EventStatus.FAILURE)
                 .build());
     }
     

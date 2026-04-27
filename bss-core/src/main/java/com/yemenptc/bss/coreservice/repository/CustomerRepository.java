@@ -36,4 +36,12 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     Page<Customer> searchCustomers(@Param("query") String query, Pageable pageable);
 
     long countByStatus(Customer.CustomerStatus status);
+
+    java.util.List<Customer> findByChurnRiskScoreGreaterThanEqual(java.math.BigDecimal score, Pageable pageable);
+
+    long countByChurnRiskScoreGreaterThanEqual(java.math.BigDecimal score);
+
+    long countByChurnRiskScoreBetween(java.math.BigDecimal min, java.math.BigDecimal max);
+
+    long countByChurnRiskScoreLessThan(java.math.BigDecimal score);
 }

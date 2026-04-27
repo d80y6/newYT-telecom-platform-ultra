@@ -1,8 +1,8 @@
 package com.yemenptc.bss.coreservice.security;
 
-import io.github.bucket4j.Bandwidth;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
+import io.github.resilience4j.ratelimiter.RateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -13,16 +13,35 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 @Slf4j
 public class RateLimitingFilter implements Filter {
 
-    private final Map<String, Bucket> clientBuckets = new ConcurrentHashMap<>();
-    private final Map<String, Bucket> endpointBuckets = new ConcurrentHashMap<>();
+    private final Map<String, AtomicInteger> clientCounters = new ConcurrentHashMap<>();
+    private final Map<String, RateLimiter> clientRateLimiters = new ConcurrentHashMap<>();
+    private final Map<String, RateLimiter> endpointRateLimiters = new ConcurrentHashMap<>();
     
     private static final int DEFAULT_REQUESTS_PER_MINUTE = 100;
     private static final int BURST_CAPACITY = 20;
+    
+    private final RateLimiterConfig clientConfig;
+    private final RateLimiterConfig endpointConfig;
+    
+    public RateLimitingFilter() {
+        this.clientConfig = RateLimiterConfig.custom()
+                .limitForPeriod(DEFAULT_REQUESTS_PER_MINUTE)
+                .limitRefreshPeriod(Duration.ofMinutes(1))
+                .timeoutDuration(Duration.ZERO)
+                .build();
+        
+        this.endpointConfig = RateLimiterConfig.custom()
+                .limitForPeriod(1000)
+                .limitRefreshPeriod(Duration.ofMinutes(1))
+                .timeoutDuration(Duration.ZERO)
+                .build();
+    }
     
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -34,12 +53,12 @@ public class RateLimitingFilter implements Filter {
         String clientId = extractClientId(httpRequest);
         String endpoint = extractEndpoint(httpRequest);
         
-        Bucket clientBucket = clientBuckets.computeIfAbsent(clientId, 
-                k -> createClientBucket());
-        Bucket endpointBucket = endpointBuckets.computeIfAbsent(endpoint, 
-                k -> createEndpointBucket());
+        RateLimiter clientLimiter = clientRateLimiters.computeIfAbsent(clientId, 
+                k -> RateLimiter.of("client-" + k, clientConfig));
+        RateLimiter endpointLimiter = endpointRateLimiters.computeIfAbsent(endpoint, 
+                k -> RateLimiter.of("endpoint-" + k, endpointConfig));
         
-        if (!clientBucket.tryConsume(1)) {
+        if (!clientLimiter.acquirePermission()) {
             log.warn("Rate limit exceeded for client: {}", clientId);
             httpResponse.setStatus(429);
             httpResponse.setContentType("application/json");
@@ -48,7 +67,7 @@ public class RateLimitingFilter implements Filter {
             return;
         }
         
-        if (!endpointBucket.tryConsume(1)) {
+        if (!endpointLimiter.acquirePermission()) {
             log.warn("Endpoint rate limit exceeded: {}", endpoint);
             httpResponse.setStatus(429);
             httpResponse.setContentType("application/json");
@@ -58,39 +77,11 @@ public class RateLimitingFilter implements Filter {
         }
         
         httpResponse.setHeader("X-RateLimit-Remaining", 
-                String.valueOf(clientBucket.getAvailableTokens()));
+                String.valueOf(clientLimiter.getMetrics().getAvailablePermissions()));
         httpResponse.setHeader("X-RateLimit-Limit", 
                 String.valueOf(DEFAULT_REQUESTS_PER_MINUTE));
         
         chain.doFilter(request, response);
-    }
-    
-    private Bucket createClientBucket() {
-        Bandwidth limit = Bandwidth.classic(
-                DEFAULT_REQUESTS_PER_MINUTE,
-                Refill.greedy(DEFAULT_REQUESTS_PER_MINUTE, Duration.ofMinutes(1))
-        );
-        
-        Bandwidth burst = Bandwidth.classic(
-                BURST_CAPACITY,
-                Refill.intervally(BURST_CAPACITY, Duration.ofSeconds(10))
-        );
-        
-        return Bucket.builder()
-                .addLimit(limit)
-                .addLimit(burst)
-                .build();
-    }
-    
-    private Bucket createEndpointBucket() {
-        Bandwidth limit = Bandwidth.classic(
-                1000,
-                Refill.greedy(1000, Duration.ofMinutes(1))
-        );
-        
-        return Bucket.builder()
-                .addLimit(limit)
-                .build();
     }
     
     private String extractClientId(HttpServletRequest request) {
@@ -111,13 +102,13 @@ public class RateLimitingFilter implements Filter {
         return request.getMethod() + ":" + request.getRequestURI();
     }
     
-    public void clearBuckets() {
-        clientBuckets.clear();
-        endpointBuckets.clear();
+    public void clearRateLimiters() {
+        clientRateLimiters.clear();
+        endpointRateLimiters.clear();
     }
     
-    public long getRemainingTokens(String clientId) {
-        Bucket bucket = clientBuckets.get(clientId);
-        return bucket != null ? bucket.getAvailableTokens() : DEFAULT_REQUESTS_PER_MINUTE;
+    public int getRemainingTokens(String clientId) {
+        RateLimiter limiter = clientRateLimiters.get(clientId);
+        return limiter != null ? limiter.getMetrics().getAvailablePermissions() : DEFAULT_REQUESTS_PER_MINUTE;
     }
 }

@@ -1,7 +1,11 @@
 package com.yemenptc.bss.coreservice.service;
 
 import com.yemenptc.bss.coreservice.entity.ResourceOrder;
+import com.yemenptc.bss.coreservice.entity.Task;
+import com.yemenptc.bss.coreservice.entity.WorkOrder;
 import com.yemenptc.bss.coreservice.repository.ResourceOrderRepository;
+import com.yemenptc.bss.coreservice.repository.TaskRepository;
+import com.yemenptc.bss.coreservice.repository.WorkOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +22,8 @@ import java.util.UUID;
 public class ResourceOrderService {
 
     private final ResourceOrderRepository resourceOrderRepository;
+    private final WorkOrderRepository workOrderRepository;
+    private final TaskRepository taskRepository;
 
     @Transactional
     public ResourceOrder createResourceOrder(ResourceOrder request) {
@@ -45,8 +51,38 @@ public class ResourceOrderService {
             .build();
 
         ResourceOrder saved = resourceOrderRepository.save(order);
-        log.info("Resource order created: {}", saved.getExternalId());
+        log.info("Resource order created: {}. Starting decomposition.", saved.getExternalId());
+        
+        decomposeOrder(saved);
+        
         return saved;
+    }
+
+    private void decomposeOrder(ResourceOrder order) {
+        log.info("Decomposing resource order: {}", order.getExternalId());
+        
+        // Step 1: Create Work Order
+        WorkOrder workOrder = WorkOrder.builder()
+            .workOrderNumber("WO-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+            .resourceOrder(order)
+            .description("Fulfillment for " + order.getExternalId())
+            .status(WorkOrder.WorkOrderStatus.PENDING)
+            .build();
+        
+        WorkOrder savedWO = workOrderRepository.save(workOrder);
+        
+        // Step 2: Create Tasks based on resource type
+        if (order.getResourceType() != null) {
+            Task task = Task.builder()
+                .taskNumber("TASK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
+                .workOrder(savedWO)
+                .description("Provision " + order.getResourceType() + " for " + order.getExternalId())
+                .status(Task.TaskStatus.PENDING)
+                .build();
+            taskRepository.save(task);
+        }
+        
+        log.info("Order {} decomposed into WorkOrder {} and tasks", order.getExternalId(), savedWO.getWorkOrderNumber());
     }
 
     @Transactional(readOnly = true)

@@ -62,9 +62,10 @@ public class Customer360Controller {
     public ResponseEntity<TmfResponse<CustomerSegment>> assignSegment(
             @PathVariable UUID id,
             @RequestBody Map<String, String> request) {
-        String segmentType = request.get("segmentType");
-        String segmentValue = request.get("segmentValue");
-        CustomerSegment segment = customer360Service.assignSegment(id, segmentType, segmentValue);
+        String type = request.get("segmentType");
+        String value = request.get("segmentValue");
+        CustomerSegment segment = customer360Service.assignSegment(id, 
+                com.yemenptc.bss.coreservice.entity.CustomerSegment.SegmentType.valueOf(type), value);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(TmfResponse.success(segment, "CustomerSegment"));
     }
@@ -247,12 +248,8 @@ public class Customer360Controller {
             @RequestParam(required = false) BigDecimal minLifetimeValue,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        Page<Customer360> result;
-        if (query != null) {
-            result = customer360Service.listCustomers360(PageRequest.of(page, size));
-        } else {
-            result = customer360Service.listCustomers360(PageRequest.of(page, size));
-        }
+        Page<Customer360> result = customer360Service.searchCustomers(
+                query, segment, customerType, status, minLifetimeValue, PageRequest.of(page, size));
         return ResponseEntity.ok(TmfResponse.<Customer360>list(
                 result.getContent(), (int) result.getTotalElements(), page, size, "Customer360"));
     }
@@ -260,10 +257,10 @@ public class Customer360Controller {
     @GetMapping("/customer/statistics")
     public ResponseEntity<TmfResponse<Map<String, Object>>> getCustomerStatistics(
             @RequestParam(required = false) String period) {
-        // This would provide customer statistics - simplified for now
+        // Simple implementation for statistics
         Map<String, Object> statistics = Map.of(
-                "totalCustomers", 0,
-                "activeCustomers", 0,
+                "totalCustomers", customer360Service.listCustomers360(PageRequest.of(0, 1)).getTotalElements(),
+                "activeCustomers", 0, // Would query by status
                 "newCustomers", 0,
                 "churnedCustomers", 0,
                 "bySegment", Map.of(),

@@ -2,9 +2,13 @@ package com.yemenptc.bss.coreservice.service;
 
 import com.yemenptc.bss.coreservice.entity.Order;
 import com.yemenptc.bss.coreservice.repository.OrderRepository;
+import com.yemenptc.bss.coreservice.temporal.FtthOrderWorkflow;
+import com.yemenptc.bss.coreservice.temporal.MobileActivationWorkflow;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.temporal.client.WorkflowClient;
+import io.temporal.client.WorkflowOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -13,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -25,6 +31,7 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final WorkflowClient workflowClient;
 
     @Transactional
     @CircuitBreaker(name = "orderService", fallbackMethod = "createOrderFallback")
@@ -41,11 +48,63 @@ public class OrderService {
             .priority(request.getPriority() != null ? request.getPriority() : Order.OrderPriority.MEDIUM)
             .channel(request.getChannel())
             .notes(request.getNotes())
+            .orderItems(request.getOrderItems())
             .build();
         
+        // Associate items with order
+        if (order.getOrderItems() != null) {
+            order.getOrderItems().forEach(item -> item.setOrder(order));
+        }
+
         Order saved = orderRepository.save(order);
         log.info("Order created: {}", saved.getOrderNumber());
+
+        // Trigger orchestration based on item types
+        if (saved.getOrderItems() != null) {
+            saved.getOrderItems().forEach(item -> {
+                if ("FTTH".equalsIgnoreCase(item.getItemType()) || 
+                    (item.getProductOfferingId() != null && item.getProductOfferingId().contains("FTTH"))) {
+                    startFtthWorkflow(saved);
+                } else if ("MOBILE".equalsIgnoreCase(item.getItemType())) {
+                    startMobileWorkflow(saved, item.getProductOfferingId());
+                }
+            });
+        }
+
         return saved;
+    }
+
+    private void startFtthWorkflow(Order order) {
+        log.info("Starting FTTH Temporal workflow for order: {}", order.getId());
+        
+        FtthOrderWorkflow workflow = workflowClient.newWorkflowStub(
+                FtthOrderWorkflow.class,
+                WorkflowOptions.newBuilder()
+                        .setTaskQueue("FTTH_ORDER_TASK_QUEUE")
+                        .setWorkflowId("FTTH-" + order.getId())
+                        .build());
+
+        Map<String, Object> config = new HashMap<>();
+        config.put("partyId", order.getCustomerId().toString());
+        config.put("orderNumber", order.getOrderNumber());
+
+        WorkflowClient.start(workflow::executeFtthOrder, order.getId().toString(), config);
+    }
+
+    private void startMobileWorkflow(Order order, String planId) {
+        log.info("Starting Mobile Activation Temporal workflow for order: {}", order.getId());
+
+        MobileActivationWorkflow workflow = workflowClient.newWorkflowStub(
+                MobileActivationWorkflow.class,
+                WorkflowOptions.newBuilder()
+                        .setTaskQueue("MOBILE_ACTIVATION_TASK_QUEUE")
+                        .setWorkflowId("MOBILE-" + order.getId())
+                        .build());
+
+        // Assuming MSISDN might be provided in order notes or characteristics in a real scenario
+        String msisdn = order.getPrimaryPhone() != null ? order.getPrimaryPhone() : "RESERVE_NEW";
+        
+        WorkflowClient.start(workflow::activateMobile, order.getId().toString(), msisdn, planId);
     }
 
     @Transactional(readOnly = true)

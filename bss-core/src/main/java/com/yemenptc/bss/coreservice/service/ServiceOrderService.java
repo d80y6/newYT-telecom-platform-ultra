@@ -70,7 +70,7 @@ public class ServiceOrderService {
             .orderType(request.getOrderType() != null ? request.getOrderType() : existing.getOrderType())
             .cfsType(request.getCfsType() != null ? request.getCfsType() : existing.getCfsType())
             .rfsType(request.getRfsType() != null ? request.getRfsType() : existing.getRfsType())
-            .completedAt(request.getStatus() == ServiceOrder.ServiceOrderStatus.COMPLETED ? LocalDateTime.now() : existing.getCompletedAt())
+            .completedAt(request.getStatus() == ServiceOrder.ServiceOrderStatus.COMPLETED ? java.time.Instant.now() : existing.getCompletedAt())
             .build();
         
         updated.setId(id);
@@ -95,7 +95,7 @@ public class ServiceOrderService {
     public ServiceOrder completeOrder(UUID id) {
         ServiceOrder order = getServiceOrder(id);
         order.setStatus(ServiceOrder.ServiceOrderStatus.COMPLETED);
-        order.setCompletedAt(LocalDateTime.now());
+        order.setCompletedAt(java.time.Instant.now());
         order.setUpdatedAt(java.time.Instant.now());
         return serviceOrderRepository.save(order);
     }
@@ -116,7 +116,7 @@ public class ServiceOrderService {
         order.setUpdatedAt(java.time.Instant.now());
         
         if (newStatus == ServiceOrder.ServiceOrderStatus.COMPLETED) {
-            order.setCompletedAt(LocalDateTime.now());
+            order.setCompletedAt(java.time.Instant.now());
         }
         
         return serviceOrderRepository.save(order);

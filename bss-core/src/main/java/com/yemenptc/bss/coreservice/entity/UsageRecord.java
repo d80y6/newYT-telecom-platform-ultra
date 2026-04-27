@@ -122,7 +122,7 @@ public class UsageRecord extends BaseTmfEntity {
     private String chargingClass;
 
     public enum UsageType {
-        VOICE, SMS, DATA, CONTENT, EVENT
+        VOICE, SMS, DATA, CONTENT, EVENT, ROAMING, INTERNET
     }
 
     public enum UsageStatus {

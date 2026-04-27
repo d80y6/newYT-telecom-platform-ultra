@@ -99,4 +99,22 @@ public class ResourceOrderController {
         ResourceOrder order = resourceOrderService.cancelOrder(id, reason);
         return ResponseEntity.ok(TmfResponse.success(order, "ResourceOrder"));
     }
+
+    @GetMapping("/resourceOrder/{id}/workOrder")
+    public ResponseEntity<TmfResponse<com.yemenptc.bss.coreservice.entity.WorkOrder>> getWorkOrders(@PathVariable UUID id) {
+        ResourceOrder order = resourceOrderService.getResourceOrder(id);
+        var workOrders = order.getWorkOrders();
+        return ResponseEntity.ok(TmfResponse.list(workOrders, workOrders.size(), 0, workOrders.size(), "WorkOrder"));
+    }
+
+    @GetMapping("/resourceOrder/{id}/task")
+    public ResponseEntity<TmfResponse<com.yemenptc.bss.coreservice.entity.Task>> getTasks(@PathVariable UUID id) {
+        ResourceOrder order = resourceOrderService.getResourceOrder(id);
+        var workOrders = order.getWorkOrders();
+        java.util.List<com.yemenptc.bss.coreservice.entity.Task> tasks = new java.util.ArrayList<>();
+        for (var wo : workOrders) {
+            tasks.addAll(wo.getTasks());
+        }
+        return ResponseEntity.ok(TmfResponse.list(tasks, tasks.size(), 0, tasks.size(), "Task"));
+    }
 }

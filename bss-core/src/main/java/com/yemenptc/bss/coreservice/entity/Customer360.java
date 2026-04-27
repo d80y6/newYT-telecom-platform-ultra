@@ -102,7 +102,7 @@ public class Customer360 extends BaseTmfEntity {
     private String status;
 
     @Column(name = "date_of_birth")
-    private LocalDateTime dateOfBirth;
+    private java.time.LocalDate dateOfBirth;
 
     @Column(name = "gender")
     private String gender;

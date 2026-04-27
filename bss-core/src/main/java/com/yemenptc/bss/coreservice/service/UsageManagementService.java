@@ -20,6 +20,7 @@ import java.util.UUID;
 public class UsageManagementService {
 
     private final UsageRecordRepository usageRecordRepository;
+    private final RatingService ratingService;
 
     @Transactional
     public UsageRecord recordUsage(UsageRecord request) {
@@ -52,8 +53,53 @@ public class UsageManagementService {
         }
 
         UsageRecord saved = usageRecordRepository.save(record);
-        log.info("Usage recorded: {}", saved.getId());
+        log.info("Usage recorded: {}. Starting rating.", saved.getId());
+        
+        // Auto-rating logic
+        autoRateUsage(saved);
+        
+        // Threshold monitoring
+        checkUsageThresholds(saved);
+        
         return saved;
+    }
+
+    private void autoRateUsage(UsageRecord record) {
+        log.info("Auto-rating usage for record: {}", record.getId());
+        // Integration with rating engine logic
+        // For demonstration, using simple logic - in prod would call ratingService
+        BigDecimal rate = getRateForType(record.getUsageType());
+        BigDecimal amount = BigDecimal.ZERO;
+        
+        if (record.getUsageType() == UsageRecord.UsageType.VOICE && record.getDurationSeconds() != null) {
+            amount = rate.multiply(BigDecimal.valueOf(record.getDurationSeconds()));
+        } else if (record.getUsageType() == UsageRecord.UsageType.DATA && record.getVolumeMb() != null) {
+            amount = rate.multiply(record.getVolumeMb());
+        }
+        
+        if (amount.compareTo(BigDecimal.ZERO) > 0) {
+            rateUsage(record.getId(), amount);
+        }
+    }
+
+    private BigDecimal getRateForType(UsageRecord.UsageType type) {
+        return switch (type) {
+            case VOICE -> new BigDecimal("0.5"); // 0.5 YER per second
+            case DATA -> new BigDecimal("10.0"); // 10 YER per MB
+            case SMS -> new BigDecimal("5.0");   // 5 YER per SMS
+            default -> new BigDecimal("1.0");
+        };
+    }
+
+    private void checkUsageThresholds(UsageRecord record) {
+        log.info("Checking thresholds for record: {}", record.getId());
+        // Simple threshold alert: if usage > 1000 MB, log warning
+        if (record.getUsageType() == UsageRecord.UsageType.DATA && record.getVolumeMb() != null) {
+            if (record.getVolumeMb().compareTo(new BigDecimal("1000")) > 0) {
+                log.warn("High data usage alert: account={}, volume={}MB", 
+                        record.getAccountId(), record.getVolumeMb());
+            }
+        }
     }
 
     @Transactional(readOnly = true)

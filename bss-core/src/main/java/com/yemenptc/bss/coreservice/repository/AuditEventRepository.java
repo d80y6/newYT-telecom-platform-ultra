@@ -37,4 +37,16 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
 
     @Query("SELECT COUNT(a) FROM AuditEvent a WHERE a.timestamp < :cutoff")
     long countEventsBeforeCutoff(@Param("cutoff") Instant cutoff);
+
+    List<AuditEvent> findByEntityTypeAndEntityIdOrderByTimestampDesc(String entityType, UUID entityId);
+
+    List<AuditEvent> findByUserIdOrderByTimestampDesc(UUID userId);
+
+    List<AuditEvent> findByEventTypeOrderByTimestampDesc(String eventType);
+
+    java.util.Optional<AuditEvent> findByEventId(String eventId);
+
+    List<AuditEvent> findByTimestampBetweenOrderByTimestampDesc(Instant start, Instant end);
+
+    List<AuditEvent> findBySuccessOrderByTimestampDesc(boolean success);
 }
